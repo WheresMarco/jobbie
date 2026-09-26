@@ -49,10 +49,10 @@ final class SystemDnsResolver implements DnsResolver
             $value = match ($type) {
                 DnsRecordType::A => $record['ip'] ?? null,
                 DnsRecordType::AAAA => $record['ipv6'] ?? null,
-                DnsRecordType::TXT => isset($record['entries']) && is_array($record['entries'])
+                // Only TXT remains, CNAME returned above.
+                default => isset($record['entries']) && is_array($record['entries'])
                     ? implode('', $record['entries'])
                     : ($record['txt'] ?? null),
-                DnsRecordType::CNAME => null,
             };
 
             if (is_string($value)) {
