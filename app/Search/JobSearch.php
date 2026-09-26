@@ -106,7 +106,7 @@ final readonly class JobSearch
         $newOnly = $filters->newOnly;
         $kind = $filters->kind?->value;
 
-        $rows = $this->rows($filters)->get()->all();
+        $rows = self::fetchNumeric($this->rows($filters));
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
 
         $countries = $cities = $remotes = $departments = $published = $kinds = [];
@@ -119,17 +119,13 @@ final readonly class JobSearch
         // Local copies: this loop runs once per posting.
         $remoteOptions = self::REMOTE_OPTIONS;
 
-        foreach ($rows as $index => $row) {
-            /** @var \stdClass $row */
-            $id = $row->id;
-            $boardId = $row->board_id;
+        foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt]) {
             $rowKind = $boardKind[$boardId] ?? '';
             $rowCountries = $rowCountriesById[$id] ?? [];
             $rowCities = $rowCitiesById[$id] ?? [];
-            $remote = $remoteOptions[$row->remote ?? ''] ?? 'unknown';
-            $rowDepartment = $row->department;
-            $postedAt = $row->posted_at ?? '';
-            $isNew = $row->first_seen_at >= $newSince;
+            $remote = $remoteOptions[$rowRemote ?? ''] ?? 'unknown';
+            $postedAt = $rowPostedAt ?? '';
+            $isNew = $firstSeenAt >= $newSince;
 
             // The one active filter this row fails, or null. Rows failing
             // two or more filters count nowhere.
@@ -206,7 +202,7 @@ final readonly class JobSearch
             $total++;
 
             if ($grouped) {
-                $employer = $row->company ?? ($boardName[$boardId] ?? '');
+                $employer = $company ?? ($boardName[$boardId] ?? '');
                 $employerTotal[$employer] = ($employerTotal[$employer] ?? 0) + 1;
                 if ($remote === 'fully') {
                     $employerRemote[$employer] = ($employerRemote[$employer] ?? 0) + 1;
@@ -231,7 +227,7 @@ final readonly class JobSearch
 
                 $groupCities = [];
                 foreach ($employerRows[$employer] as $index) {
-                    foreach ($rowCitiesById[(int) $rows[$index]->id] ?? [] as $value => $_) {
+                    foreach ($rowCitiesById[$rows[$index][0]] ?? [] as $value => $_) {
                         $groupCities[$value] = ($groupCities[$value] ?? 0) + 1;
                     }
                 }
@@ -248,7 +244,7 @@ final readonly class JobSearch
             $hasMore = count($flat) > $limit;
             // Stable sort: equal dates keep the scan order.
             arsort($flat, SORT_STRING);
-            $ids = array_map(static fn (int $index): int => (int) $rows[$index]->id, array_slice(array_keys($flat), 0, $limit));
+            $ids = array_map(static fn (int $index): int => (int) $rows[$index][0], array_slice(array_keys($flat), 0, $limit));
         }
 
         $publishedCounts = [];
@@ -276,7 +272,7 @@ final readonly class JobSearch
     /**
      * Countries and cities per posting id, as sets.
      *
-     * @param  array<int, \stdClass>  $rows
+     * @param  list<array<int, mixed>>  $rows
      * @return array{array<int, array<string, true>>, array<int, array<string, true>>}
      */
     private function locations(array $rows): array
@@ -286,21 +282,40 @@ final readonly class JobSearch
         // Reading every location is cheaper than a long IN list, unless the
         // free text left only a few postings.
         if (count($rows) <= 2000) {
-            $query->whereIn('job_posting_id', array_map(static fn (\stdClass $row): int => (int) $row->id, $rows));
+            $query->whereIn('job_posting_id', array_column($rows, 0));
         }
 
         $countries = $cities = [];
-        foreach ($query->get() as $location) {
-            $id = (int) $location->job_posting_id;
-            if ($location->country !== null) {
-                $countries[$id][(string) $location->country] = true;
+        foreach (self::fetchNumeric($query) as [$id, $city, $country]) {
+            if ($country !== null) {
+                $countries[$id][$country] = true;
             }
-            if ($location->city !== null) {
-                $cities[$id][(string) $location->city] = true;
+            if ($city !== null) {
+                $cities[$id][$city] = true;
             }
         }
 
         return [$countries, $cities];
+    }
+
+    /**
+     * Rows as plain lists, skipping query builder hydration: this is the hot
+     * path and runs over every active posting.
+     *
+     * @return list<array<int, mixed>>
+     */
+    private static function fetchNumeric(Builder $query): array
+    {
+        $statement = DB::connection()->getReadPdo()->prepare($query->toSql());
+        $statement->execute(array_map(
+            static fn (mixed $binding): mixed => is_bool($binding) ? (int) $binding : $binding,
+            $query->getBindings(),
+        ));
+
+        /** @var list<array<int, mixed>> $rows */
+        $rows = $statement->fetchAll(\PDO::FETCH_NUM);
+
+        return $rows;
     }
 
     /**
@@ -357,7 +372,7 @@ final readonly class JobSearch
     /**
      * Ids of the newest postings among the given rows: posted_at, then id.
      *
-     * @param  array<int, \stdClass>  $rows
+     * @param  list<array<int, mixed>>  $rows
      * @param  list<int>  $indexes
      * @return list<int>
      */
@@ -365,8 +380,7 @@ final readonly class JobSearch
     {
         $keys = [];
         foreach ($indexes as $index) {
-            $row = $rows[$index];
-            $keys[] = $row->posted_at.str_pad((string) $row->id, 12, '0', STR_PAD_LEFT);
+            $keys[] = $rows[$index][5].str_pad((string) $rows[$index][0], 12, '0', STR_PAD_LEFT);
         }
 
         rsort($keys, SORT_STRING);
