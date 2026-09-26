@@ -93,6 +93,8 @@ Status på karriärsidan: `active` (har annonser), `empty` (flödet är tomt), `
 
 Fritext söker i titel, arbetsgivare och beskrivning via MySQL FULLTEXT i boolean mode, med `+ord*` per ord. Det betyder att ett ord matchar i början av ord. "utvecklare" hittar därför inte "Backendutvecklare". Ord kortare än tre tecken söks med LIKE, eftersom de ligger under InnoDB:s minsta ordlängd.
 
+Sökningen (`App\Search\JobSearch`) matchar fritexten i SQL och läser sedan en smal rad per träff via ett täckande index. Totalen, alla facetter och grupperna räknas i ett enda svep i PHP, och bara de annonser som visas laddas i sin helhet. En grupps annonser laddas när gruppen fälls ut. Testet `composer test:mysql` seedar 50 000 annonser med `DemoSeeder` och kräver att typiska sidor svarar under 300 ms (bästa av tre körningar, med resultatcachen tömd före varje körning). Ett sökord som finns i nästan alla annonser är långsammare, eftersom InnoDB:s fulltextsökning då själv blir flaskhalsen.
+
 Gränssnittet är avsett för eget bruk. Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` kräver alla sidor, inklusive Livewire och Horizon, inloggning med HTTP Basic Auth. I produktion utan dessa värden svarar appen 403. Exponera den inte öppet på internet.
 
 ## Konfiguration
