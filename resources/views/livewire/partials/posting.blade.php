@@ -35,6 +35,9 @@
         @if ($posting->department)
             <span class="text-stone-500">{{ $posting->department }}</span>
         @endif
+        @if ($posting->in_platsbanken)
+            <span class="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">{{ __('ui.jobs.in_platsbanken') }}</span>
+        @endif
         @if ($posting->first_seen_at->greaterThanOrEqualTo(now()->subDays(config()->integer('radar.new_job_days'))))
             <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{{ __('ui.jobs.new_badge') }}</span>
         @endif

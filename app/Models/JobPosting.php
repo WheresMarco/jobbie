@@ -34,10 +34,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon $first_seen_at
  * @property Carbon $last_seen_at
  * @property bool $active
+ * @property bool $in_platsbanken
+ * @property string|null $platsbanken_ad_id
+ * @property string|null $platsbanken_match
  */
 #[Fillable([
     'board_id', 'feed_id', 'title', 'url', 'company', 'cities', 'countries', 'remote', 'department',
     'employment_type', 'salary_text', 'posted_at', 'description', 'first_seen_at', 'last_seen_at', 'active',
+    'in_platsbanken', 'platsbanken_ad_id', 'platsbanken_match',
 ])]
 class JobPosting extends Model
 {
@@ -57,6 +61,7 @@ class JobPosting extends Model
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'active' => 'boolean',
+            'in_platsbanken' => 'boolean',
         ];
     }
 

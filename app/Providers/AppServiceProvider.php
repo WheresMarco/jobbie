@@ -7,8 +7,12 @@ namespace App\Providers;
 use App\Discovery\Calibration\Calibrator;
 use App\Discovery\JobStream\JobStreamSync;
 use App\Discovery\Sources\CommonCrawlSource;
+use App\Discovery\Sources\HttpArchiveSource;
 use App\Discovery\Sources\PrefixSource;
+use App\Discovery\Sources\SearchApiSource;
+use App\Discovery\Sources\TxtRecordSource;
 use App\Discovery\Verifier;
+use App\Net\BigQuery;
 use App\Net\Contracts\CertificateFetcher;
 use App\Net\Contracts\DnsResolver;
 use App\Net\DohDnsResolver;
@@ -62,6 +66,32 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PrefixSource::class, static fn (Application $app): PrefixSource => new PrefixSource(
             prefixes: array_values(array_map(strval(...), config()->array('radar.prefixes'))),
             domains: $app->make(DomainName::class),
+        ));
+
+        $this->app->bind(TxtRecordSource::class, static fn (Application $app): TxtRecordSource => new TxtRecordSource(
+            dns: $app->make(DnsResolver::class),
+            prefixes: array_values(array_map(strval(...), config()->array('radar.txt_prefixes'))),
+            recheckDays: config()->integer('radar.txt_recheck_days'),
+        ));
+
+        $this->app->bind(SearchApiSource::class, static fn (): SearchApiSource => new SearchApiSource(
+            key: is_string(config('radar.search_api.key')) ? config()->string('radar.search_api.key') : null,
+            endpoint: config()->string('radar.search_api.endpoint'),
+            queries: array_values(array_map(strval(...), config()->array('radar.search_api.queries'))),
+            pages: config()->integer('radar.search_api.pages'),
+            userAgent: config()->string('radar.user_agent'),
+            timeout: config()->integer('radar.http_timeout'),
+        ));
+
+        $this->app->bind(HttpArchiveSource::class, static fn (Application $app): HttpArchiveSource => new HttpArchiveSource(
+            bigQuery: new BigQuery(
+                project: is_string(config('radar.http_archive.google_project')) ? config()->string('radar.http_archive.google_project') : null,
+                credentialsPath: is_string(config('radar.http_archive.google_credentials')) ? config()->string('radar.http_archive.google_credentials') : null,
+                timeout: 120,
+            ),
+            domains: $app->make(DomainName::class),
+            crawlDate: is_string(config('radar.http_archive.crawl_date')) ? config()->string('radar.http_archive.crawl_date') : null,
+            maxBytesBilled: config()->integer('radar.http_archive.max_bytes_billed'),
         ));
 
         $this->app->bind(CommonCrawlSource::class, static fn (): CommonCrawlSource => new CommonCrawlSource(

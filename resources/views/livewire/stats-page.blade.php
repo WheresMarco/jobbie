@@ -35,10 +35,17 @@
         @endif
     </section>
 
-    <section class="grid gap-4 sm:grid-cols-3">
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl border border-stone-200 bg-white p-4">
             <h2 class="text-sm font-medium text-stone-500">{{ __('ui.stats.active_postings') }}</h2>
             <p class="mt-1 text-2xl font-semibold tabular-nums">{{ number_format($activePostings, 0, ',', ' ') }}</p>
+        </div>
+        <div class="rounded-xl border border-stone-200 bg-white p-4">
+            <h2 class="text-sm font-medium text-stone-500">{{ __('ui.stats.in_platsbanken') }}</h2>
+            <p class="mt-1 text-2xl font-semibold tabular-nums" data-stat="platsbanken-share">
+                {{ $platsbanken['active'] === 0 ? '0' : number_format(100 * $platsbanken['matched'] / $platsbanken['active'], 1, ',', ' ') }} %
+            </p>
+            <p class="mt-1 text-xs text-stone-500">{{ __('ui.stats.platsbanken_detail', $platsbanken) }}</p>
         </div>
         <div class="rounded-xl border border-stone-200 bg-white p-4">
             <h2 class="text-sm font-medium text-stone-500">{{ __('ui.stats.by_kind') }}</h2>

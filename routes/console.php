@@ -23,6 +23,13 @@ Schedule::command('radar:discover --sync')
     ->onOneServer()
     ->onSuccess(fn () => Illuminate\Support\Facades\Artisan::call('radar:verify', ['--no-wait' => true]));
 
+// Phase 9: after the nightly scrape; JobStream data comes from discovery.
+Schedule::command('radar:match-platsbanken')
+    ->dailyAt('05:30')
+    ->timezone('Europe/Stockholm')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 Schedule::command('radar:update-psl')
     ->weeklyOn(0, '04:00')
     ->timezone('Europe/Stockholm')

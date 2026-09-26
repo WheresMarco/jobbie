@@ -22,6 +22,7 @@ return [
         'career_site' => 'Career site',
         'more_in_group' => 'and :count more from the same employer',
         'show_more' => 'Show more',
+        'in_platsbanken' => 'Also in Platsbanken',
         'new_badge' => 'New',
     ],
     'filters' => [
@@ -36,6 +37,7 @@ return [
         'any_time' => 'Any time',
         'within_days' => '{1} Last 24 hours|[2,*] Last :days days',
         'new' => 'Discovered in the last :days days',
+        'not_in_platsbanken' => 'Only postings missing from Platsbanken',
         'kind' => 'Career site',
     ],
     'remote' => [
@@ -52,6 +54,8 @@ return [
         'active_postings' => 'Active postings',
         'prefix_hits' => 'Verified career sites per prefix',
         'txt_without_board' => 'Customers by TXT without a found career site',
+        'in_platsbanken' => 'Also in Platsbanken',
+        'platsbanken_detail' => ':matched of :active (:apply_url by apply link, :org_title by organisation number and title)',
         'none' => 'None yet.',
     ],
 ];

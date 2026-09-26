@@ -62,6 +62,7 @@ return [
     'stats' => [
         'sources' => 'Upptäcktskällor',
         'boards' => 'Karriärsidor',
+        'in_platsbanken' => 'Finns även i Platsbanken',
         'active_postings' => 'Aktiva annonser',
         'prefix_hits' => 'Verifierade per prefix',
         'txt_without_board' => 'Kunder enligt TXT utan hittad sida',
@@ -106,5 +107,8 @@ return [
         'hybrid' => 'Hybrid',
         'onsite' => 'På plats',
         'unknown' => 'Ej angivet',
+    ],
+    'match_platsbanken' => [
+        'done' => ':matched av :active aktiva annonser (:share %) finns även i Platsbanken: :apply_url via ansökningslänk, :org_title via organisationsnummer och titel.',
     ],
 ];

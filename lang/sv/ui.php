@@ -22,6 +22,7 @@ return [
         'career_site' => 'Karriärsida',
         'more_in_group' => 'och :count till hos samma arbetsgivare',
         'show_more' => 'Visa fler',
+        'in_platsbanken' => 'Finns även i Platsbanken',
         'new_badge' => 'Ny',
     ],
     'filters' => [
@@ -36,6 +37,7 @@ return [
         'any_time' => 'När som helst',
         'within_days' => '{1} Senaste dygnet|[2,*] Senaste :days dagarna',
         'new' => 'Upptäckt senaste :days dagarna',
+        'not_in_platsbanken' => 'Bara annonser som saknas i Platsbanken',
         'kind' => 'Karriärsida',
     ],
     'remote' => [
@@ -52,6 +54,8 @@ return [
         'active_postings' => 'Aktiva annonser',
         'prefix_hits' => 'Verifierade karriärsidor per prefix',
         'txt_without_board' => 'Kunder enligt TXT utan hittad karriärsida',
+        'in_platsbanken' => 'Finns även i Platsbanken',
+        'platsbanken_detail' => ':matched av :active (:apply_url via ansökningslänk, :org_title via organisationsnummer och titel)',
         'none' => 'Inga ännu.',
     ],
 ];

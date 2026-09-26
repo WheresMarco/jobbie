@@ -62,6 +62,7 @@ return [
     'stats' => [
         'sources' => 'Discovery sources',
         'boards' => 'Career sites',
+        'in_platsbanken' => 'Also in Platsbanken',
         'active_postings' => 'Active postings',
         'prefix_hits' => 'Verified per prefix',
         'txt_without_board' => 'Customers by TXT without a found site',
@@ -106,5 +107,8 @@ return [
         'hybrid' => 'Hybrid',
         'onsite' => 'On site',
         'unknown' => 'Not stated',
+    ],
+    'match_platsbanken' => [
+        'done' => ':matched of :active active postings (:share %) are also in Platsbanken: :apply_url by apply link, :org_title by organisation number and title.',
     ],
 ];

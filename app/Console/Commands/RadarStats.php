@@ -48,6 +48,11 @@ final class RadarStats extends Command
             $this->components->twoColumnDetail($this->t("radar.statuses.{$status}"), (string) $count);
         }
         $this->components->twoColumnDetail($this->t('radar.stats.active_postings'), (string) $stats->activePostings());
+        $overlap = $stats->platsbankenOverlap();
+        $this->components->twoColumnDetail(
+            $this->t('radar.stats.in_platsbanken'),
+            $overlap['active'] === 0 ? '0 %' : number_format(100 * $overlap['matched'] / $overlap['active'], 1, ',', ' ').' % ('.$overlap['matched'].')',
+        );
 
         $prefixHits = $stats->prefixHits();
         if ($prefixHits !== []) {

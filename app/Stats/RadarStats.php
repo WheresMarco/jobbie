@@ -79,6 +79,30 @@ final class RadarStats
     }
 
     /**
+     * Phase 9: how many active postings also appear in Platsbanken.
+     *
+     * @return array{active: int, matched: int, apply_url: int, org_title: int}
+     */
+    public function platsbankenOverlap(): array
+    {
+        $active = JobPosting::query()->where('active', true)->count();
+        $methods = JobPosting::query()->toBase()
+            ->where('active', true)
+            ->where('in_platsbanken', true)
+            ->select('platsbanken_match')
+            ->selectRaw('count(*) as total')
+            ->groupBy('platsbanken_match')
+            ->pluck('total', 'platsbanken_match');
+
+        return [
+            'active' => $active,
+            'matched' => (int) $methods->sum(),
+            'apply_url' => (int) ($methods['apply_url'] ?? 0),
+            'org_title' => (int) ($methods['org_title'] ?? 0),
+        ];
+    }
+
+    /**
      * Domains whose root TXT record says they are Teamtailor customers but
      * where no board has been found under the domain: the visible gap.
      *

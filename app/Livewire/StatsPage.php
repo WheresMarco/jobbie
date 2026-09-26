@@ -22,6 +22,7 @@ final class StatsPage extends Component
             'byKind' => $stats->boardsByKind(),
             'byStatus' => $stats->boardsByStatus(),
             'activePostings' => $stats->activePostings(),
+            'platsbanken' => $stats->platsbankenOverlap(),
             'prefixHits' => $stats->prefixHits(),
             'txtWithoutBoard' => $stats->txtMatchesWithoutBoard(),
         ]);

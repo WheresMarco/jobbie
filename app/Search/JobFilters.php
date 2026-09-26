@@ -29,6 +29,7 @@ final readonly class JobFilters
         public ?int $publishedDays = null,
         public bool $newOnly = false,
         public ?BoardKind $kind = null,
+        public bool $notInPlatsbanken = false,
     ) {
     }
 
@@ -46,6 +47,7 @@ final readonly class JobFilters
         string $published = '',
         bool $newOnly = false,
         string $kind = '',
+        bool $notInPlatsbanken = false,
     ): self {
         $country = strtoupper(trim($country));
 
@@ -58,6 +60,7 @@ final readonly class JobFilters
             publishedDays: in_array((int) $published, self::PUBLISHED_OPTIONS, true) ? (int) $published : null,
             newOnly: $newOnly,
             kind: BoardKind::tryFrom($kind),
+            notInPlatsbanken: $notInPlatsbanken,
         );
     }
 
@@ -74,28 +77,11 @@ final readonly class JobFilters
         return array_slice(array_values(array_unique($words)), 0, self::MAX_TERMS);
     }
 
-    /**
-     * The same filters without one facet, for counting that facet's options.
-     */
-    public function without(string $facet): self
-    {
-        return new self(
-            query: $this->query,
-            country: $facet === 'country' ? null : $this->country,
-            city: $facet === 'city' ? null : $this->city,
-            remote: $facet === 'remote' ? [] : $this->remote,
-            department: $facet === 'department' ? null : $this->department,
-            publishedDays: $facet === 'published' ? null : $this->publishedDays,
-            newOnly: $facet === 'new' ? false : $this->newOnly,
-            kind: $facet === 'kind' ? null : $this->kind,
-        );
-    }
-
     public function cacheKey(): string
     {
         return md5(serialize([
             $this->terms(), $this->country, $this->city, $this->remote, $this->department,
-            $this->publishedDays, $this->newOnly, $this->kind?->value,
+            $this->publishedDays, $this->newOnly, $this->kind?->value, $this->notInPlatsbanken,
         ]));
     }
 

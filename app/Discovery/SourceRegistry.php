@@ -6,8 +6,11 @@ namespace App\Discovery;
 
 use App\Discovery\Contracts\CandidateSource;
 use App\Discovery\Sources\CommonCrawlSource;
+use App\Discovery\Sources\HttpArchiveSource;
 use App\Discovery\Sources\JobStreamSource;
 use App\Discovery\Sources\PrefixSource;
+use App\Discovery\Sources\SearchApiSource;
+use App\Discovery\Sources\TxtRecordSource;
 use App\Enums\CandidateSourceType;
 use Illuminate\Contracts\Container\Container;
 use InvalidArgumentException;
@@ -26,6 +29,11 @@ final readonly class SourceRegistry
         'prefix' => CandidateSourceType::Prefix,
         'prefixes' => CandidateSourceType::Prefix,
         'commoncrawl' => CandidateSourceType::CommonCrawl,
+        'txt' => CandidateSourceType::Txt,
+        'httparchive' => CandidateSourceType::HttpArchive,
+        'http_archive' => CandidateSourceType::HttpArchive,
+        'search' => CandidateSourceType::SearchApi,
+        'search_api' => CandidateSourceType::SearchApi,
     ];
 
     /**
@@ -37,6 +45,9 @@ final readonly class SourceRegistry
         CandidateSourceType::JobStream->value => JobStreamSource::class,
         CandidateSourceType::Prefix->value => PrefixSource::class,
         CandidateSourceType::CommonCrawl->value => CommonCrawlSource::class,
+        CandidateSourceType::Txt->value => TxtRecordSource::class,
+        CandidateSourceType::HttpArchive->value => HttpArchiveSource::class,
+        CandidateSourceType::SearchApi->value => SearchApiSource::class,
     ];
 
     public function __construct(private Container $container)
