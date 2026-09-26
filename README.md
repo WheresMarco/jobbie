@@ -119,7 +119,31 @@ Matchade annonser får märket "Finns även i Platsbanken", gränssnittet har fi
 
 ## Driftsättning på Laravel Cloud
 
-Appen är förberedd för [Laravel Cloud](https://cloud.laravel.com): tunga jobb körs i Horizon, schemaläggaren köar bara arbete, och appen litar på lastbalanserarens `X-Forwarded-*`-huvuden så att länkar blir `https`. Själva miljön skapas i Clouds gränssnitt:
+Appen är förberedd för [Laravel Cloud](https://cloud.laravel.com): tunga jobb körs i Horizon, schemaläggaren köar bara arbete, och appen litar på lastbalanserarens `X-Forwarded-*`-huvuden så att länkar blir `https`.
+
+### Automatiskt via GitHub Actions
+
+Arbetsflödet `Laravel Cloud` (`.github/workflows/laravel-cloud.yml`) sätter upp allt i listan nedan med [Clouds CLI](https://github.com/laravel/cloud-cli) och driftsätter sedan. Skriptet bakom är `scripts/cloud-provision.php`. Det återanvänder det som redan finns, så arbetsflödet kan köras igen för att uppdatera inställningar eller bara driftsätta.
+
+Förberedelser, en gång:
+
+1. Skapa ett konto på Laravel Cloud, lägg in betalning och koppla GitHub-kontot (Cloud måste kunna läsa repot).
+2. Skapa en API-token i Clouds organisationsinställningar.
+3. Lägg in i repots inställningar under *Secrets and variables → Actions*:
+    * hemligheten `LARAVEL_CLOUD_TOKEN`,
+    * hemligheten `RADAR_BASIC_AUTH_PASSWORD`,
+    * variabeln `RADAR_BASIC_AUTH_USER`,
+    * gärna variabeln `RADAR_USER_AGENT` med en kontaktadress,
+    * valfritt hemligheten `RADAR_SEARCH_API_KEY` och variabeln `CLOUD_APP_NAME` (standard `teamtailor-radar`).
+4. Arbetsflödet måste ligga på standardgrenen för att kunna startas manuellt.
+
+Kör sedan *Actions → Laravel Cloud → Run workflow*. Första gången bör *first_run* kryssas i, så köas upptäckt och skrapning direkt efter driftsättningen. Adressen till appen står i körningens sammanfattning.
+
+Det som skapas: applikationen med en Laravel MySQL-databas (förinställningen `dev`), en Valkey-cache, schemaläggaren på webbinstansen, en workerinstans `horizon` (minsta storleken med minst 1 GB minne, kan ändras med *worker_size*) med bakgrundsprocessen `php artisan horizon`, samt miljövariablerna nedan. `APP_KEY` genereras bara om den saknas.
+
+### Manuellt
+
+Samma miljö kan också skapas för hand i Clouds gränssnitt:
 
 1. **Applikation.** Skapa en applikation från GitHub-repot `wheresmarco/jobbie` och välj grenen som ska driftsättas. Region: EU (Frankfurt eller Amsterdam) ligger närmast Sverige.
 2. **Resurser.** Koppla en **Laravel MySQL**-databas (MySQL 8 krävs för FULLTEXT) och en **Laravel Valkey**-cache (Redis-kompatibel, fungerar med Horizon). Cloud sätter då `DB_*` och `REDIS_*` själv.
