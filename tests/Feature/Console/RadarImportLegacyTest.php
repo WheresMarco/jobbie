@@ -54,7 +54,7 @@ it('is idempotent and never overwrites existing candidates', function (): void {
 
     $this->artisan('radar:import-legacy', ['path' => $this->legacy])->assertSuccessful();
     $this->artisan('radar:import-legacy', ['path' => $this->legacy])
-        ->expectsOutputToContain('0 new candidates imported')
+        ->expectsOutputToContain('0 nya kandidater importerades')
         ->assertSuccessful();
 
     expect(Candidate::query()->count())->toBe(4)
