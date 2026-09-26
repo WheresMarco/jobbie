@@ -20,7 +20,7 @@ class CandidateFactory extends Factory
     public function definition(): array
     {
         return [
-            'host' => 'jobb.'.fake()->unique()->domainWord().'.se',
+            'host' => 'jobb.'.fake()->unique()->lexify('????????').'.se',
             'source' => CandidateSourceType::Prefix,
             'source_ref' => null,
             'strength' => Strength::Weak,

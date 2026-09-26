@@ -28,7 +28,11 @@ final readonly class SourceRegistry
         'commoncrawl' => CandidateSourceType::CommonCrawl,
     ];
 
-    /** Sources that run through CollectCandidates. */
+    /**
+     * Sources that run through CollectCandidates.
+     *
+     * @var array<string, class-string<CandidateSource>>
+     */
     private const array COLLECTABLE = [
         CandidateSourceType::JobStream->value => JobStreamSource::class,
         CandidateSourceType::Prefix->value => PrefixSource::class,
@@ -53,11 +57,6 @@ final readonly class SourceRegistry
     {
         $class = self::COLLECTABLE[$type->value] ?? throw new InvalidArgumentException("Source {$type->value} cannot be collected");
 
-        $source = $this->container->make($class);
-        if (! $source instanceof CandidateSource) {
-            throw new InvalidArgumentException("{$class} is not a candidate source");
-        }
-
-        return $source;
+        return $this->container->make($class);
     }
 }

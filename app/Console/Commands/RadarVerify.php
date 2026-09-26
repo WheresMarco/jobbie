@@ -64,7 +64,7 @@ final class RadarVerify extends Command
         }
 
         $jobs = array_map(
-            static fn (array $chunk): VerifyCandidateBatch => new VerifyCandidateBatch(array_values($chunk)),
+            static fn (array $chunk): VerifyCandidateBatch => new VerifyCandidateBatch($chunk),
             array_chunk($hosts, VerifyCandidateBatch::SIZE),
         );
 
