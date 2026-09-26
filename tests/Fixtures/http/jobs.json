@@ -1,0 +1,21 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Exempel AB",
+  "home_page_url": "https://career.example.se/",
+  "feed_url": "https://career.example.se/jobs.json",
+  "items": [
+    {
+      "id": "1234567",
+      "url": "https://career.example.se/jobs/1234567-utvecklare",
+      "title": "Utvecklare",
+      "content_html": "<p>Vi söker en utvecklare.</p>",
+      "date_published": "2026-09-01T08:00:00+02:00",
+      "_jobposting": {
+        "@type": "JobPosting",
+        "title": "Utvecklare",
+        "hiringOrganization": {"@type": "Organization", "name": "Exempel AB"},
+        "jobLocation": [{"@type": "Place", "address": {"@type": "PostalAddress", "addressLocality": "Stockholm", "addressCountry": "Sweden"}}]
+      }
+    }
+  ]
+}

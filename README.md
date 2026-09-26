@@ -2,7 +2,7 @@
 
 Laravel-applikation som hittar företag som annonserar via Teamtailor, även när karriärsidan ligger på egen domän (till exempel `career.foretag.se`), samlar alla öppna annonser och visar dem i ett filtrerbart webbgränssnitt. Fokus ligger på svenska företag.
 
-Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning).
+Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning) och Fas 1 (kalibrering av fingeravtryck).
 
 ## Krav
 
@@ -32,11 +32,30 @@ Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose 
 | `composer lint` | Pint i kontrolläge (PSR-12 och `declare(strict_types=1)`) |
 | `composer format` | Pint som rättar filerna |
 
-Alla tester körs offline. `Http::preventStrayRequests()` är aktivt.
+Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS samt TLS är utbytta mot fejkade klienter i `tests/Fakes`.
 
 ## Konfiguration
 
-Alla inställningar finns i `config/radar.php` och läses från `.env` (se `.env.example`). DNS går som standard via DNS over HTTPS (`RADAR_DNS_DRIVER=doh`).
+Alla inställningar finns i `config/radar.php` och läses från `.env` (se `.env.example`). DNS går som standard via DNS over HTTPS (`RADAR_DNS_DRIVER=doh`). Med `RADAR_DNS_DRIVER=system` används operativsystemets resolver i stället, vilket fungerar där DoH är blockerat men saknar tidsgräns.
+
+## Kalibrering
+
+`php artisan radar:calibrate {värdar*}` sparar för varje värd CNAME-kedja, A- och AAAA-poster, TXT-poster på rotdomänen, certifikatets utfärdare och SAN-lista, svarshuvuden för `/` och `/jobs.json` samt vilka värdar HTML-sidan laddar resurser från. Resultatet hamnar som JSON i `storage/app/calibration/`. Delar kan hoppas över med `--without=txt,tls,http`.
+
+### Resultat (26 september 2026)
+
+Kalibreringen gjordes i en miljö där HTTP mot Teamtailor, DNS over HTTPS och stora TXT-svar var blockerade. Därför bygger resultatet enbart på DNS via systemets resolver. Ett urval av rådata finns i `tests/Fixtures/calibration/`.
+
+Metod: prefixen `career`, `careers`, `karriar`, `jobb`, `jobs`, `join`, `work` och `jobba` provades mot 148 företagsdomäner, främst svenska. 42 värdar pekade på Teamtailor.
+
+* **CNAME.** Nästan alla egna domäner pekar på den gemensamma adressen `ext.teamtailor.com`. Två (`career.clasohlson.com` och `careers.airmee.com`) pekar på en unik adress på formen `<13 tecken>.ext.teamtailor.com`. `*.ext.teamtailor.com` är ett DNS-jokertecken, och alla leder vidare till `teamtailor.map.fastly.net`. Mönstret är distinkt och räcker som fingeravtryck i DNS.
+* **IP-adresser.** `teamtailor.map.fastly.net` svarar med 151.101.1.242, 151.101.65.242, 151.101.129.242 och 151.101.193.242 samt motsvarande IPv6 under `2a04:4e42::/32`. Det är Fastlys anycastadresser som kan delas med andra Fastlykunder. En träff på adress (utplattad CNAME) är därför bara ett skäl att göra ett HTTP-anrop, aldrig ett bevis.
+* **TXT.** `airmee.com` har posten `teamtailor=<32 hexadecimala tecken>`, vilket ser ut att vara Teamtailors verifieringspost. Det är bara en bekräftelse eftersom de flesta TXT-svar var för stora för resolvern i kalibreringsmiljön. `nordicwellness.se` har ett fristående 32-teckens hexvärde utan prefix, vars ursprung inte går att avgöra. Källa E ser möjlig ut men mönstret behöver fler bekräftelser.
+* **Slug-adresser.** `*.teamtailor.com` är ett DNS-jokertecken som pekar på en lastbalanserare i AWS (`eu-pink-ecs-teamtailor-*.eu-west-1.elb.amazonaws.com`). Även påhittade slugs svarar, så DNS kan inte avgöra om en slug finns. Sådana kandidater måste gå direkt till HTTP.
+* **HTML.** Ej kalibrerat. Arbetshypotesen är domänen `teamtailor-cdn.com` (`assets.`, `scripts.` och `images.` finns i DNS).
+* **Certifikat.** Ej kalibrerat. TLS-trafiken i kalibreringsmiljön gick via en proxy som bytte ut certifikaten.
+
+Mönstren finns i `App\Discovery\Fingerprint`, med en kommentar per mönster om vilka domäner det bekräftades mot. Innan Fas 4 bör `radar:calibrate` köras igen med fullt nätverk för att fylla i HTML-markörer och certifikatsnoteringar och för att få fler TXT-bekräftelser.
 
 ## Python-prototypen
 

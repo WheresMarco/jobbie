@@ -1,0 +1,40 @@
+{
+    "host": "jobs.tele2.com",
+    "root_domain": "tele2.com",
+    "captured_at": "2026-09-26T09:40:49+00:00",
+    "dns": {
+        "a": {
+            "host": "jobs.tele2.com",
+            "type": "A",
+            "status": "ok",
+            "cname_chain": [
+                "tele2.jobs2web.com",
+                "rmk12.jobs2web.com"
+            ],
+            "values": [
+                "130.214.193.81"
+            ],
+            "error": null
+        },
+        "aaaa": {
+            "host": "jobs.tele2.com",
+            "type": "AAAA",
+            "status": "nodata",
+            "cname_chain": [
+                "tele2.jobs2web.com",
+                "rmk12.jobs2web.com"
+            ],
+            "values": [],
+            "error": null
+        },
+        "root_txt": null
+    },
+    "tls": null,
+    "http": [],
+    "matches": {
+        "cname": null,
+        "address": null,
+        "txt": null
+    },
+    "errors": []
+}

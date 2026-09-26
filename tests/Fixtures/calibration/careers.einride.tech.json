@@ -1,0 +1,39 @@
+{
+    "host": "careers.einride.tech",
+    "root_domain": "einride.tech",
+    "captured_at": "2026-09-26T09:40:49+00:00",
+    "dns": {
+        "a": {
+            "host": "careers.einride.tech",
+            "type": "A",
+            "status": "ok",
+            "cname_chain": [
+                "wp.wpenginepowered.com"
+            ],
+            "values": [
+                "141.193.213.10",
+                "141.193.213.11"
+            ],
+            "error": null
+        },
+        "aaaa": {
+            "host": "careers.einride.tech",
+            "type": "AAAA",
+            "status": "nodata",
+            "cname_chain": [
+                "wp.wpenginepowered.com"
+            ],
+            "values": [],
+            "error": null
+        },
+        "root_txt": null
+    },
+    "tls": null,
+    "http": [],
+    "matches": {
+        "cname": null,
+        "address": null,
+        "txt": null
+    },
+    "errors": []
+}
