@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Discovery\CandidateCollector;
 use App\Discovery\SourceRegistry;
 use App\Enums\CandidateSourceType;
+use App\Jobs\Concerns\RunsOnLongQueue;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 final class CollectCandidates implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
+    use RunsOnLongQueue;
 
     public int $timeout = 3600;
 
@@ -22,6 +24,7 @@ final class CollectCandidates implements ShouldBeUnique, ShouldQueue
 
     public function __construct(public CandidateSourceType $source)
     {
+        $this->useLongQueue();
     }
 
     public function uniqueId(): string

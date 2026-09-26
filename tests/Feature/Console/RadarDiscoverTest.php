@@ -6,6 +6,7 @@ use App\Discovery\JobStream\JobStreamSync;
 use App\Enums\CandidateSourceType;
 use App\Enums\Strength;
 use App\Jobs\CollectCandidates;
+use App\Jobs\QueueVerification;
 use App\Jobs\SyncJobStream;
 use App\Models\Board;
 use App\Models\Candidate;
@@ -149,14 +150,40 @@ it('syncs a JobStream snapshot, then only changes', function (): void {
     Http::assertSent(fn (Request $r): bool => str_contains($r->url(), 'jobstream.test/stream?date=2026-09-26T11%3A59%3A00'));
 });
 
-it('queues sources, chaining the JobStream sync before collecting', function (): void {
+it('queues the sources as one chain, JobStream sync first', function (): void {
     Bus::fake();
 
     $this->artisan('radar:discover')->assertSuccessful();
 
-    Bus::assertChained([SyncJobStream::class, fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::JobStream]);
-    Bus::assertDispatched(CollectCandidates::class, fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::Prefix);
-    Bus::assertDispatched(CollectCandidates::class, fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::CommonCrawl);
+    Bus::assertChained([
+        SyncJobStream::class,
+        fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::JobStream,
+        fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::Prefix,
+        fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::CommonCrawl,
+    ]);
+});
+
+it('ends the chain with verification when asked', function (): void {
+    Bus::fake();
+
+    $this->artisan('radar:discover', ['--source' => ['prefixes'], '--verify' => true])->assertSuccessful();
+
+    Bus::assertChained([
+        fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::Prefix,
+        QueueVerification::class,
+    ]);
+});
+
+it('sends discovery jobs to the long queue connection when configured', function (): void {
+    config(['radar.long_queue_connection' => 'redis-long']);
+
+    expect((new SyncJobStream())->connection)->toBe('redis-long')
+        ->and((new SyncJobStream())->queue)->toBe('discovery')
+        ->and((new CollectCandidates(CandidateSourceType::Prefix))->connection)->toBe('redis-long');
+
+    config(['radar.long_queue_connection' => null]);
+
+    expect((new SyncJobStream())->connection)->toBeNull();
 });
 
 it('rejects unknown sources', function (): void {

@@ -47,6 +47,13 @@ return [
     ],
     'txt_recheck_days' => (int) env('RADAR_TXT_RECHECK_DAYS', 30),
 
+    /*
+    | Queue connection for long discovery jobs. Set to "redis-long" in
+    | production (see config/queue.php and config/horizon.php); empty means
+    | the default connection.
+    */
+    'long_queue_connection' => env('RADAR_LONG_QUEUE_CONNECTION'),
+
     'dead_recheck_days' => (int) env('RADAR_DEAD_RECHECK_DAYS', 30),
     'rejected_recheck_days' => (int) env('RADAR_REJECTED_RECHECK_DAYS', 60),
     'new_job_days' => (int) env('RADAR_NEW_JOB_DAYS', 7),

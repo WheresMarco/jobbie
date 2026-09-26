@@ -70,7 +70,20 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Longer than the slowest job on this connection (ScrapeBoard,
+            // VerifyCandidateBatch: 900 s), so running jobs are not retried.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 960),
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
+        // Discovery jobs (JobStream sync, candidate collection) run for up to
+        // an hour and get their own connection, queue and Horizon supervisor.
+        'redis-long' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'discovery',
+            'retry_after' => 3900,
             'block_for' => null,
             'after_commit' => false,
         ],
