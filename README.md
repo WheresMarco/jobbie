@@ -45,6 +45,7 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
 | `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
 | `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
+| `radar:smoke {värdar?*}` | Manuellt röktest mot riktiga karriärsidor (standard tre kända). Verifierar och läser flöde och RSS utan att skriva till databasen. Ingår inte i CI |
 | `radar:match-platsbanken` | Markerar annonser som även finns i Platsbanken (körs varje natt) |
 | `radar:stats` | Kandidater per källa och steg, aktiva karriärsidor och annonser per källa, fördelning per typ och status, verifierade per prefix och TXT-kunder utan hittad sida |
 | `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--no-wait` avslutar direkt efter köandet |

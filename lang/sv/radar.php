@@ -111,4 +111,14 @@ return [
     'match_platsbanken' => [
         'done' => ':matched av :active aktiva annonser (:share %) finns även i Platsbanken: :apply_url via ansökningslänk, :org_title via organisationsnummer och titel.',
     ],
+    'smoke' => [
+        'columns' => [
+            'host' => 'Värd',
+            'stage' => 'Steg',
+            'reason' => 'Orsak',
+            'final_host' => 'Slutvärd',
+            'postings' => 'Annonser',
+            'rss' => 'RSS-poster',
+        ],
+    ],
 ];

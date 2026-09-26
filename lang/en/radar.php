@@ -111,4 +111,14 @@ return [
     'match_platsbanken' => [
         'done' => ':matched of :active active postings (:share %) are also in Platsbanken: :apply_url by apply link, :org_title by organisation number and title.',
     ],
+    'smoke' => [
+        'columns' => [
+            'host' => 'Host',
+            'stage' => 'Stage',
+            'reason' => 'Reason',
+            'final_host' => 'Final host',
+            'postings' => 'Postings',
+            'rss' => 'RSS items',
+        ],
+    ],
 ];
