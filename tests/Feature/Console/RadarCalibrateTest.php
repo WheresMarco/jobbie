@@ -98,3 +98,14 @@ it('rejects unknown sections', function (): void {
 
     expect(File::isDirectory($this->output))->toBeFalse();
 });
+
+it('looks up TXT on the registrable domain', function (): void {
+    $this->artisan('radar:calibrate', [
+        'hosts' => ['Jobs.Foretag.CO.UK.'],
+        '--without' => ['tls', 'http'],
+        '--output' => $this->output,
+    ])->assertSuccessful();
+
+    expect(calibrationOutput($this->output, 'jobs.foretag.co.uk')['root_domain'])->toBe('foretag.co.uk')
+        ->and($this->dns->queries)->toContain('TXT foretag.co.uk');
+});

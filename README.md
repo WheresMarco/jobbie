@@ -2,7 +2,7 @@
 
 Laravel-applikation som hittar företag som annonserar via Teamtailor, även när karriärsidan ligger på egen domän (till exempel `career.foretag.se`), samlar alla öppna annonser och visar dem i ett filtrerbart webbgränssnitt. Fokus ligger på svenska företag.
 
-Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning) och Fas 1 (kalibrering av fingeravtryck).
+Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck) och Fas 2 (domänmodell).
 
 ## Krav
 
@@ -33,6 +33,18 @@ Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose 
 | `composer format` | Pint som rättar filerna |
 
 Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS samt TLS är utbytta mot fejkade klienter i `tests/Fakes`.
+
+## Kommandon
+
+| Kommando | Vad det gör |
+| --- | --- |
+| `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
+| `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
+| `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
+
+`radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
+
+Registrerbar domän räknas fram med Public Suffix List. En kopia ligger i `resources/psl/` och används tills `radar:update-psl` har hämtat en egen.
 
 ## Konfiguration
 

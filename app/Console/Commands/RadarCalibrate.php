@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\Translates;
 use App\Discovery\Calibration\CalibrationResult;
 use App\Discovery\Calibration\CalibrationSection;
 use App\Discovery\Calibration\Calibrator;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\File;
 
 final class RadarCalibrate extends Command
 {
+    use Translates;
+
     protected $signature = 'radar:calibrate
         {hosts* : Hosts to examine, for example career.kry.se}
         {--without=* : Sections to skip (dns, txt, tls, http)}
@@ -64,15 +67,6 @@ final class RadarCalibrate extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * @param  array<string, string>  $replace
-     */
-    private function t(string $key, array $replace = []): string
-    {
-        $line = __($key, $replace);
-
-        return is_string($line) ? $line : $key;
-    }
 
     /**
      * @return list<CalibrationSection>|null

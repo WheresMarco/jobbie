@@ -18,4 +18,20 @@ return [
             'final_host' => 'Final host',
         ],
     ],
+    'psl' => [
+        'updated' => 'Public Suffix List updated (:bytes bytes) at :path',
+        'failed' => 'Could not update the Public Suffix List: :error',
+    ],
+    'import_legacy' => [
+        'missing' => 'The file :path does not exist.',
+        'unreadable' => 'Could not read the database: :error',
+        'no_columns' => 'Found no table with a host or URL column.',
+        'done' => ':count new candidates imported.',
+        'columns' => [
+            'column' => 'Column',
+            'seen' => 'Values',
+            'invalid' => 'Invalid',
+            'created' => 'New',
+        ],
+    ],
 ];

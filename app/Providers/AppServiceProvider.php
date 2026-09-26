@@ -8,6 +8,8 @@ use App\Discovery\Calibration\Calibrator;
 use App\Net\Contracts\CertificateFetcher;
 use App\Net\Contracts\DnsResolver;
 use App\Net\DohDnsResolver;
+use App\Net\DomainName;
+use App\Net\PublicSuffixList;
 use App\Net\StreamCertificateFetcher;
 use App\Net\SystemDnsResolver;
 use Illuminate\Contracts\Foundation\Application;
@@ -27,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
             ),
         });
 
+        $this->app->singleton(DomainName::class, static fn (): DomainName => new DomainName(PublicSuffixList::rules()));
+
         $this->app->singleton(CertificateFetcher::class, static fn (): CertificateFetcher => new StreamCertificateFetcher(
             timeout: config()->integer('radar.tls_timeout'),
         ));
@@ -34,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(Calibrator::class, static fn (Application $app): Calibrator => new Calibrator(
             dns: $app->make(DnsResolver::class),
             certificates: $app->make(CertificateFetcher::class),
+            domains: $app->make(DomainName::class),
             userAgent: config()->string('radar.user_agent'),
             httpTimeout: config()->integer('radar.http_timeout'),
         ));

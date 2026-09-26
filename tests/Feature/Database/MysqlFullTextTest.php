@@ -2,38 +2,29 @@
 
 declare(strict_types=1);
 
-use Illuminate\Database\Schema\Blueprint;
+use App\Models\JobPosting;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /*
-| Runs only against MySQL (composer test:mysql). Guards the FULLTEXT setup
-| that the job browser depends on.
+| Runs only against MySQL (composer test:mysql). Guards the migrations and
+| the FULLTEXT index that the job browser depends on.
 */
 
-beforeEach(function (): void {
-    Schema::create('fulltext_probe', function (Blueprint $table): void {
-        $table->id();
-        $table->string('title');
-        $table->fullText('title');
-    });
-});
+uses(RefreshDatabase::class);
 
-afterEach(function (): void {
-    Schema::dropIfExists('fulltext_probe');
-});
-
-it('runs on MySQL 8 with boolean mode FULLTEXT search', function (): void {
+it('runs the migrations on MySQL 8 with a FULLTEXT index on job postings', function (): void {
     expect(DB::connection()->getDriverName())->toBe('mysql');
 
-    DB::table('fulltext_probe')->insert([
-        ['title' => 'Backendutvecklare till Stockholm'],
-        ['title' => 'Sjuksköterska i Göteborg'],
-    ]);
+    JobPosting::factory()->create(['title' => 'Backendutvecklare till Stockholm', 'description' => 'PHP och Laravel']);
+    JobPosting::factory()->create(['title' => 'Sjuksköterska i Göteborg', 'company' => 'Vårdbolaget', 'description' => 'Vård']);
 
-    $titles = DB::table('fulltext_probe')
-        ->whereFullText('title', '+backend*', ['mode' => 'boolean'])
-        ->pluck('title');
+    $search = fn (string $terms): array => JobPosting::query()
+        ->whereFullText(['title', 'company', 'description'], $terms, ['mode' => 'boolean'])
+        ->pluck('title')
+        ->all();
 
-    expect($titles->all())->toBe(['Backendutvecklare till Stockholm']);
+    expect($search('+backend*'))->toBe(['Backendutvecklare till Stockholm'])
+        ->and($search('+laravel*'))->toBe(['Backendutvecklare till Stockholm'])
+        ->and($search('+vårdbolaget*'))->toBe(['Sjuksköterska i Göteborg']);
 })->group('mysql');

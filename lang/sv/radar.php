@@ -18,4 +18,20 @@ return [
             'final_host' => 'Slutvärd',
         ],
     ],
+    'psl' => [
+        'updated' => 'Public Suffix List uppdaterad (:bytes byte) i :path',
+        'failed' => 'Kunde inte uppdatera Public Suffix List: :error',
+    ],
+    'import_legacy' => [
+        'missing' => 'Filen :path finns inte.',
+        'unreadable' => 'Kunde inte läsa databasen: :error',
+        'no_columns' => 'Hittade ingen tabell med en kolumn för värd eller adress.',
+        'done' => ':count nya kandidater importerades.',
+        'columns' => [
+            'column' => 'Kolumn',
+            'seen' => 'Värden',
+            'invalid' => 'Ogiltiga',
+            'created' => 'Nya',
+        ],
+    ],
 ];

@@ -8,6 +8,7 @@ use App\Discovery\Fingerprint;
 use App\Net\Contracts\CertificateFetcher;
 use App\Net\Contracts\DnsResolver;
 use App\Net\DnsRecordType;
+use App\Net\DomainName;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\Client\Response;
@@ -26,6 +27,7 @@ final readonly class Calibrator
     public function __construct(
         private DnsResolver $dns,
         private CertificateFetcher $certificates,
+        private DomainName $domains,
         private string $userAgent,
         private int $httpTimeout,
     ) {
@@ -36,8 +38,8 @@ final readonly class Calibrator
      */
     public function calibrate(string $host, array $sections): CalibrationResult
     {
-        $host = strtolower(rtrim(trim($host), '.'));
-        $rootDomain = self::rootDomain($host);
+        $host = $this->domains->normalize($host) ?? strtolower(rtrim(trim($host), '.'));
+        $rootDomain = $this->domains->registrable($host) ?? $host;
         $errors = [];
 
         $a = $aaaa = $rootTxt = $certificate = null;
@@ -76,18 +78,6 @@ final readonly class Calibrator
             http: $http,
             errors: $errors,
         );
-    }
-
-    /**
-     * Registrable domain approximated by dropping the first label. Good
-     * enough for calibration input, which is always a subdomain of a normal
-     * suffix. DomainName (Phase 2) replaces this with the Public Suffix List.
-     */
-    public static function rootDomain(string $host): string
-    {
-        $labels = explode('.', $host);
-
-        return count($labels) > 2 ? implode('.', array_slice($labels, 1)) : $host;
     }
 
     /**
