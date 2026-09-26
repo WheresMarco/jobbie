@@ -2,7 +2,7 @@
 
 Laravel-applikation som hittar företag som annonserar via Teamtailor, även när karriärsidan ligger på egen domän (till exempel `career.foretag.se`), samlar alla öppna annonser och visar dem i ett filtrerbart webbgränssnitt. Fokus ligger på svenska företag.
 
-Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell), Fas 3 (skrapning), Fas 4 (verifiering), källorna A till D i Fas 5 och Fas 6 (deduplicering).
+Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell), Fas 3 (skrapning), Fas 4 (verifiering), källorna A till D i Fas 5, Fas 6 (deduplicering), Fas 7 (schemaläggning och statistik) och Fas 8 (webbgränssnitt).
 
 ## Krav
 
@@ -20,7 +20,9 @@ php artisan key:generate
 php artisan migrate
 ```
 
-Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`.
+Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`. Gränssnittet behöver byggda resurser (`npm install && npm run build`). Med `php artisan db:seed --class=DemoSeeder` fylls databasen med påhittade annonser att prova med.
+
+Schemat i `routes/console.php` körs med `php artisan schedule:work` (eller cron mot `schedule:run`): skrapning varje natt, upptäckt och verifiering varje måndag, Public Suffix List varje söndag och Horizons ögonblicksbilder var femte minut.
 
 ## Kontroller
 
@@ -43,6 +45,7 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
 | `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
 | `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
+| `radar:stats` | Kandidater per källa och steg, aktiva karriärsidor och annonser per källa, fördelning per typ och status, verifierade per prefix och TXT-kunder utan hittad sida |
 | `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--no-wait` avslutar direkt efter köandet |
 
 `radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
@@ -83,6 +86,14 @@ Varje karriärsida skrapas av köjobbet `ScrapeBoard`. Det är unikt per karriä
 4. Annonser som försvunnit inaktiveras, men bara efter en fullständig läsning.
 
 Status på karriärsidan: `active` (har annonser), `empty` (flödet är tomt), `dead` (404, 410 eller svar som inte är ett jobbflöde, annonserna stängs) och `error` (tillfälligt fel, senast kända annonser behålls). Döda sidor provas igen efter `RADAR_DEAD_RECHECK_DAYS` dagar.
+
+## Webbgränssnitt
+
+`/` visar alla aktiva annonser, grupperade per arbetsgivare eller som platt lista. Gruppering sker på annonsens arbetsgivare och inte på karriärsidan, eftersom bemanningsföretag annonserar åt kunder. Filtren (fritext, land, ort, arbetsplats, avdelning, publiceringsdatum, nyupptäckta och typ av karriärsida) sparas i URL:en, och varje filter visar antal träffar givet de andra filtren. Antalen cachas en minut per filterkombination. `/stats` visar samma statistik som `radar:stats`.
+
+Fritext söker i titel, arbetsgivare och beskrivning via MySQL FULLTEXT i boolean mode, med `+ord*` per ord. Det betyder att ett ord matchar i början av ord. "utvecklare" hittar därför inte "Backendutvecklare". Ord kortare än tre tecken söks med LIKE, eftersom de ligger under InnoDB:s minsta ordlängd.
+
+Gränssnittet är avsett för eget bruk. Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` kräver alla sidor, inklusive Livewire och Horizon, inloggning med HTTP Basic Auth. I produktion utan dessa värden svarar appen 403. Exponera den inte öppet på internet.
 
 ## Konfiguration
 

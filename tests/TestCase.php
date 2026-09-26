@@ -26,6 +26,8 @@ abstract class TestCase extends BaseTestCase
         Http::preventStrayRequests();
         // Retry backoff and progress polling must not slow tests down.
         Sleep::fake();
+        // Front-end assets are not built in CI.
+        $this->withoutVite();
 
         $this->dns = FakeDnsResolver::fromCalibrationFixtures();
         $this->certificates = new FakeCertificateFetcher();
