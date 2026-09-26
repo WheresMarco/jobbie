@@ -27,7 +27,8 @@ final readonly class JobPostingData
         public ?string $salaryText,
         public ?CarbonImmutable $postedAt,
         public ?string $description,
-    ) {}
+    ) {
+    }
 
     /**
      * @return list<string>

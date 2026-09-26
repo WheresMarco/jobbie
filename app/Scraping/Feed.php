@@ -21,7 +21,8 @@ final readonly class Feed
         public array $items,
         public bool $truncated,
         public int $pages,
-    ) {}
+    ) {
+    }
 
     public function finalHost(): string
     {

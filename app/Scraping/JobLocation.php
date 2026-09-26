@@ -9,5 +9,6 @@ final readonly class JobLocation
     public function __construct(
         public ?string $city,
         public ?string $country,
-    ) {}
+    ) {
+    }
 }

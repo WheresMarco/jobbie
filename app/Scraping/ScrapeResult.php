@@ -15,5 +15,6 @@ final readonly class ScrapeResult
         public bool $truncated = false,
         public ?string $error = null,
         public ?Feed $feed = null,
-    ) {}
+    ) {
+    }
 }

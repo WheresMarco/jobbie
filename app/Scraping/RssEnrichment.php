@@ -14,5 +14,6 @@ final readonly class RssEnrichment
     public function __construct(
         public ?string $department,
         public ?RemoteStatus $remote,
-    ) {}
+    ) {
+    }
 }
