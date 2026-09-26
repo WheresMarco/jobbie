@@ -8,23 +8,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
     /**
-     * Indexes for the job browser's filters and facets.
+     * Covering index for the job browser's single scan (JobSearch): every
+     * column it reads, newest first, without touching the wide rows that
+     * hold the descriptions.
      */
     public function up(): void
     {
         Schema::table('job_postings', function (Blueprint $table): void {
-            $table->index(['active', 'first_seen_at']);
-            $table->index(['active', 'remote']);
-            $table->index(['active', 'department']);
+            $table->index(
+                ['active', 'posted_at', 'first_seen_at', 'board_id', 'remote', 'department', 'company'],
+                'job_postings_search_index',
+            );
         });
     }
 
     public function down(): void
     {
         Schema::table('job_postings', function (Blueprint $table): void {
-            $table->dropIndex(['active', 'first_seen_at']);
-            $table->dropIndex(['active', 'remote']);
-            $table->dropIndex(['active', 'department']);
+            $table->dropIndex('job_postings_search_index');
         });
     }
 };

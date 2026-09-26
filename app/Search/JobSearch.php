@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace App\Search;
 
-use App\Enums\RemoteStatus;
+use App\Models\Board;
 use App\Models\JobPosting;
-use App\Models\JobPostingLocation;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Queries behind the job browser: filtered postings, employer groups and
- * facet counts. Free text uses the MySQL FULLTEXT index in boolean mode
- * (+word* per word); other databases fall back to LIKE.
+ * Everything behind the job browser.
+ *
+ * Free text is matched in SQL (MySQL FULLTEXT in boolean mode with +word*,
+ * LIKE for short words and on other databases). All other filters, the
+ * facet counts and the employer groups are then computed in one pass over
+ * a narrow row per matching posting. That is one scan instead of one query
+ * per facet, and each facet can ignore its own filter for free. Only the
+ * postings that are shown are loaded in full.
  */
 final readonly class JobSearch
 {
@@ -24,291 +27,310 @@ final readonly class JobSearch
 
     public const int FACET_LIMIT = 30;
 
-    public const int FACET_CACHE_SECONDS = 60;
+    public const int CACHE_SECONDS = 60;
 
     /** InnoDB's default innodb_ft_min_token_size; shorter words use LIKE. */
     private const int FULLTEXT_MIN_LENGTH = 3;
 
-    /** Employer name: the posting's company, else the career site's name or host. */
-    private const string EMPLOYER = 'coalesce(job_postings.company, boards.name, boards.canonical_host)';
+    /** RemoteStatus value => filter option. Teamtailor's "none" means no remote work, which is on site. */
+    private const array REMOTE_OPTIONS = ['fully' => 'fully', 'hybrid' => 'hybrid', 'onsite' => 'onsite', 'none' => 'onsite'];
 
     public function __construct(private int $newJobDays)
     {
     }
 
     /**
-     * Active postings matching the filters.
-     *
-     * @return Builder<JobPosting>
+     * @param  list<string>|null  $openEmployers  Groups whose postings are loaded; null loads only the first group.
      */
-    public function query(JobFilters $filters): Builder
+    public function search(JobFilters $filters, bool $grouped, int $limit, ?array $openEmployers = null): SearchResult
     {
-        $query = JobPosting::query()->where('job_postings.active', true);
+        $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit;
 
-        $this->applyTerms($query, $filters->terms());
+        /** @var array{total: int, facets: Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
+        $summary = Cache::remember($key, self::CACHE_SECONDS, fn (): array => $this->summarize($filters, $grouped, $limit));
 
-        if ($filters->country !== null) {
-            $query->whereIn('job_postings.id', $this->locationIds('country', $filters->country));
-        }
-
-        if ($filters->city !== null) {
-            $query->whereIn('job_postings.id', $this->locationIds('city', $filters->city));
-        }
-
-        if ($filters->remote !== []) {
-            $query->where(function (Builder $q) use ($filters): void {
-                foreach ($filters->remote as $option) {
-                    match ($option) {
-                        'fully' => $q->orWhere('job_postings.remote', RemoteStatus::Fully->value),
-                        'hybrid' => $q->orWhere('job_postings.remote', RemoteStatus::Hybrid->value),
-                        // Teamtailor's "none" means no remote work, which is on site.
-                        'onsite' => $q->orWhereIn('job_postings.remote', [RemoteStatus::Onsite->value, RemoteStatus::None->value]),
-                        default => $q->orWhereNull('job_postings.remote'),
-                    };
-                }
-            });
-        }
-
-        if ($filters->department !== null) {
-            $query->where('job_postings.department', $filters->department);
-        }
-
-        if ($filters->publishedDays !== null) {
-            $query->where('job_postings.posted_at', '>=', Carbon::now()->subDays($filters->publishedDays));
-        }
-
-        if ($filters->newOnly) {
-            $query->where('job_postings.first_seen_at', '>=', $this->newSince());
-        }
-
-        if ($filters->kind !== null) {
-            $query->whereIn('job_postings.board_id', DB::table('boards')->select('id')->where('kind', $filters->kind->value));
-        }
-
-        return $query;
-    }
-
-    public function count(JobFilters $filters): int
-    {
-        return $this->query($filters)->count();
-    }
-
-    /**
-     * Newest postings first.
-     *
-     * @return list<JobPosting>
-     */
-    public function postings(JobFilters $filters, int $limit): array
-    {
-        return array_values($this->query($filters)
-            ->with('board')
-            ->orderByDesc('job_postings.posted_at')
-            ->orderByDesc('job_postings.id')
-            ->limit($limit)
-            ->get()
-            ->all());
-    }
-
-    /**
-     * Employers with the most matching postings first.
-     *
-     * @return list<EmployerGroup>
-     */
-    public function groups(JobFilters $filters, int $limit): array
-    {
-        $rows = $this->query($filters)->toBase()
-            ->join('boards', 'boards.id', '=', 'job_postings.board_id')
-            ->selectRaw(self::EMPLOYER.' as employer')
-            ->selectRaw('count(*) as total')
-            ->selectRaw('sum(case when job_postings.remote = ? then 1 else 0 end) as remote_count', [RemoteStatus::Fully->value])
-            ->groupBy('employer')
-            ->orderByDesc('total')
-            ->orderBy('employer')
-            ->limit($limit)
-            ->get();
-
-        if ($rows->isEmpty()) {
-            return [];
-        }
-
-        $employers = $rows->pluck('employer')->map(strval(...))->all();
-
-        $ranked = $this->query($filters)
-            ->join('boards', 'boards.id', '=', 'job_postings.board_id')
-            ->whereIn(DB::raw(self::EMPLOYER), $employers)
-            ->select('job_postings.*', 'boards.canonical_host as board_host')
-            ->selectRaw(self::EMPLOYER.' as employer')
-            ->selectRaw('row_number() over (partition by '.self::EMPLOYER.' order by job_postings.posted_at desc, job_postings.id desc) as position');
-
-        $postings = JobPosting::query()
-            ->fromSub($ranked, 'job_postings')
-            ->where('position', '<=', self::POSTINGS_PER_GROUP)
-            ->orderBy('position')
-            ->get()
-            ->groupBy(fn (JobPosting $p): string => (string) $p->getAttribute('employer'));
+        $open = $openEmployers ?? array_slice(array_column($summary['groups'], 'employer'), 0, 1);
+        $openGroups = array_filter($summary['groups'], static fn (array $g): bool => in_array($g['employer'], $open, true));
+        $ids = $grouped ? array_merge([], ...array_column($openGroups, 'ids')) : $summary['ids'];
+        $postings = $ids === [] ? collect() : JobPosting::query()->with('board')->whereIn('id', $ids)->get()->keyBy('id');
 
         $groups = [];
-        foreach ($rows as $row) {
-            $employer = (string) $row->employer;
-            /** @var list<JobPosting> $items */
-            $items = array_values($postings->get($employer)?->all() ?? []);
-
-            $cities = [];
-            foreach ($items as $posting) {
-                foreach ($posting->cities as $city) {
-                    $cities[$city] = true;
-                }
-            }
-
-            $host = $items === [] ? null : $items[0]->getAttribute('board_host');
+        foreach ($summary['groups'] as $group) {
+            $items = array_values(array_filter(array_map(static fn (int $id): ?JobPosting => $postings->get($id), $group['ids'])));
+            $board = $items === [] ? null : $items[0]->getRelationValue('board');
+            $host = $board instanceof Board ? $board->canonical_host : null;
 
             $groups[] = new EmployerGroup(
-                employer: $employer,
-                total: (int) $row->total,
-                remote: (int) $row->remote_count,
+                employer: $group['employer'],
+                total: $group['total'],
+                remote: $group['remote'],
                 postings: $items,
-                cities: array_keys($cities),
-                siteUrl: is_string($host) ? "https://{$host}/" : null,
+                cities: $group['cities'],
+                siteUrl: $host === null ? null : "https://{$host}/",
+                open: in_array($group['employer'], $open, true),
             );
         }
 
-        return $groups;
-    }
-
-    /**
-     * Option counts per facet, each ignoring its own filter. Cached for a
-     * minute per filter combination.
-     */
-    public function facets(JobFilters $filters): Facets
-    {
-        return new Facets(
-            countries: $this->cached($filters, 'country', fn (JobFilters $f): array => $this->locationFacet($f, 'country')),
-            cities: $this->cached($filters, 'city', fn (JobFilters $f): array => $this->locationFacet($f, 'city')),
-            remote: $this->cached($filters, 'remote', $this->remoteFacet(...)),
-            departments: $this->cached($filters, 'department', $this->departmentFacet(...)),
-            published: $this->cached($filters, 'published', $this->publishedFacet(...)),
-            new: (int) (Cache::remember(
-                'facets:new:'.$filters->without('new')->cacheKey(),
-                self::FACET_CACHE_SECONDS,
-                fn (): int => $this->query($filters->without('new'))->where('job_postings.first_seen_at', '>=', $this->newSince())->count(),
-            )),
-            kinds: $this->cached($filters, 'kind', $this->kindFacet(...)),
+        return new SearchResult(
+            total: $summary['total'],
+            facets: $summary['facets'],
+            groups: $groups,
+            postings: $grouped ? [] : array_values(array_filter(array_map(static fn (int $id): ?JobPosting => $postings->get($id), $summary['ids']))),
+            hasMore: $summary['hasMore'],
         );
     }
 
     /**
-     * @param  callable(JobFilters): array<array-key, int>  $compute
-     * @return array<array-key, int>
+     * @return array{total: int, facets: Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
-    private function cached(JobFilters $filters, string $facet, callable $compute): array
+    private function summarize(JobFilters $filters, bool $grouped, int $limit): array
     {
-        $without = $filters->without($facet);
-
-        /** @var array<array-key, int> $counts */
-        $counts = Cache::remember("facets:{$facet}:".$without->cacheKey(), self::FACET_CACHE_SECONDS, fn (): array => $compute($without));
-
-        return $counts;
-    }
-
-    /**
-     * @return array<string, int>
-     */
-    private function locationFacet(JobFilters $filters, string $column): array
-    {
-        $rows = JobPostingLocation::query()->toBase()
-            ->whereIn('job_posting_id', $this->query($filters)->select('job_postings.id')->toBase())
-            ->whereNotNull($column)
-            ->select($column)
-            ->selectRaw('count(distinct job_posting_id) as total')
-            ->groupBy($column)
-            ->orderByDesc('total')
-            ->orderBy($column)
-            ->limit(self::FACET_LIMIT)
-            ->get();
-
-        return $this->pairs($rows->all(), $column);
-    }
-
-    /**
-     * @return array<string, int>
-     */
-    private function remoteFacet(JobFilters $filters): array
-    {
-        $counts = array_fill_keys(JobFilters::REMOTE_OPTIONS, 0);
-
-        foreach ($this->query($filters)->toBase()->select('remote')->selectRaw('count(*) as total')->groupBy('remote')->get() as $row) {
-            $option = match ($row->remote) {
-                RemoteStatus::Fully->value => 'fully',
-                RemoteStatus::Hybrid->value => 'hybrid',
-                RemoteStatus::Onsite->value, RemoteStatus::None->value => 'onsite',
-                default => 'unknown',
-            };
-            $counts[$option] += (int) $row->total;
-        }
-
-        return $counts;
-    }
-
-    /**
-     * @return array<string, int>
-     */
-    private function departmentFacet(JobFilters $filters): array
-    {
-        $rows = $this->query($filters)->toBase()
-            ->whereNotNull('department')
-            ->select('department')
-            ->selectRaw('count(*) as total')
-            ->groupBy('department')
-            ->orderByDesc('total')
-            ->orderBy('department')
-            ->limit(self::FACET_LIMIT)
-            ->get();
-
-        return $this->pairs($rows->all(), 'department');
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private function publishedFacet(JobFilters $filters): array
-    {
-        $counts = [];
+        $now = Carbon::now()->utc();
+        $newSince = $now->copy()->subDays($this->newJobDays)->format('Y-m-d H:i:s');
+        $publishedSince = [];
         foreach (JobFilters::PUBLISHED_OPTIONS as $days) {
-            $counts[$days] = $this->query($filters)->where('job_postings.posted_at', '>=', Carbon::now()->subDays($days))->count();
+            $publishedSince[$days] = $now->copy()->subDays($days)->format('Y-m-d H:i:s');
+        }
+        $filterPublishedSince = $filters->publishedDays === null ? null : $publishedSince[$filters->publishedDays];
+
+        $boardKind = $boardName = [];
+        foreach (DB::table('boards')->select('id', 'kind', 'name', 'canonical_host')->get() as $board) {
+            $boardKind[(int) $board->id] = (string) $board->kind;
+            $boardName[(int) $board->id] = (string) ($board->name ?? $board->canonical_host);
         }
 
-        return $counts;
+        $country = $filters->country;
+        $city = $filters->city;
+        $remoteFilter = $filters->remote === [] ? null : array_flip($filters->remote);
+        $department = $filters->department;
+        $newOnly = $filters->newOnly;
+        $kind = $filters->kind?->value;
+
+        $rows = $this->rows($filters)->get()->all();
+        [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
+
+        $countries = $cities = $remotes = $departments = $published = $kinds = [];
+        $newCount = $total = 0;
+        // Per employer: postings, fully remote postings and row indexes.
+        $employerTotal = $employerRemote = $employerRows = [];
+        // Row index => posted_at, for the flat list.
+        $flat = [];
+
+        // Local copies: this loop runs once per posting.
+        $remoteOptions = self::REMOTE_OPTIONS;
+
+        foreach ($rows as $index => $row) {
+            /** @var \stdClass $row */
+            $id = $row->id;
+            $boardId = $row->board_id;
+            $rowKind = $boardKind[$boardId] ?? '';
+            $rowCountries = $rowCountriesById[$id] ?? [];
+            $rowCities = $rowCitiesById[$id] ?? [];
+            $remote = $remoteOptions[$row->remote ?? ''] ?? 'unknown';
+            $rowDepartment = $row->department;
+            $postedAt = $row->posted_at ?? '';
+            $isNew = $row->first_seen_at >= $newSince;
+
+            // The one active filter this row fails, or null. Rows failing
+            // two or more filters count nowhere.
+            $failed = null;
+            $failures = 0;
+            if ($country !== null && ! isset($rowCountries[$country])) {
+                $failed = 'country';
+                $failures++;
+            }
+            if ($city !== null && ! isset($rowCities[$city])) {
+                $failed = 'city';
+                $failures++;
+            }
+            if ($remoteFilter !== null && ! isset($remoteFilter[$remote])) {
+                $failed = 'remote';
+                $failures++;
+            }
+            if ($department !== null && $rowDepartment !== $department) {
+                $failed = 'department';
+                $failures++;
+            }
+            if ($filterPublishedSince !== null && $postedAt < $filterPublishedSince) {
+                $failed = 'published';
+                $failures++;
+            }
+            if ($newOnly && ! $isNew) {
+                $failed = 'new';
+                $failures++;
+            }
+            if ($kind !== null && $rowKind !== $kind) {
+                $failed = 'kind';
+                $failures++;
+            }
+
+            if ($failures > 1) {
+                continue;
+            }
+
+            // Each facet counts rows that pass every filter except its own.
+            if ($failed === null || $failed === 'country') {
+                foreach ($rowCountries as $value => $_) {
+                    $countries[$value] = ($countries[$value] ?? 0) + 1;
+                }
+            }
+            if ($failed === null || $failed === 'city') {
+                foreach ($rowCities as $value => $_) {
+                    $cities[$value] = ($cities[$value] ?? 0) + 1;
+                }
+            }
+            if ($failed === null || $failed === 'remote') {
+                $remotes[$remote] = ($remotes[$remote] ?? 0) + 1;
+            }
+            if (($failed === null || $failed === 'department') && $rowDepartment !== null) {
+                $departments[$rowDepartment] = ($departments[$rowDepartment] ?? 0) + 1;
+            }
+            if ($failed === null || $failed === 'published') {
+                foreach ($publishedSince as $days => $since) {
+                    if ($postedAt >= $since) {
+                        $published[$days] = ($published[$days] ?? 0) + 1;
+                    }
+                }
+            }
+            if (($failed === null || $failed === 'new') && $isNew) {
+                $newCount++;
+            }
+            if ($failed === null || $failed === 'kind') {
+                $kinds[$rowKind] = ($kinds[$rowKind] ?? 0) + 1;
+            }
+
+            if ($failed !== null) {
+                continue;
+            }
+
+            $total++;
+
+            if ($grouped) {
+                $employer = $row->company ?? ($boardName[$boardId] ?? '');
+                $employerTotal[$employer] = ($employerTotal[$employer] ?? 0) + 1;
+                if ($remote === 'fully') {
+                    $employerRemote[$employer] = ($employerRemote[$employer] ?? 0) + 1;
+                }
+                $employerRows[$employer][] = $index;
+            } else {
+                $flat[$index] = $postedAt;
+            }
+        }
+
+        $groups = [];
+        $ids = [];
+        $hasMore = false;
+
+        if ($grouped) {
+            // Largest first, then by name.
+            uksort($employerTotal, static fn (int|string $a, int|string $b): int => [$employerTotal[$b], (string) $a] <=> [$employerTotal[$a], (string) $b]);
+            $hasMore = count($employerTotal) > $limit;
+
+            foreach (array_slice($employerTotal, 0, $limit, true) as $employer => $count) {
+                $newest = self::newest($rows, $employerRows[$employer], self::POSTINGS_PER_GROUP);
+
+                $groupCities = [];
+                foreach ($employerRows[$employer] as $index) {
+                    foreach ($rowCitiesById[(int) $rows[$index]->id] ?? [] as $value => $_) {
+                        $groupCities[$value] = ($groupCities[$value] ?? 0) + 1;
+                    }
+                }
+
+                $groups[] = [
+                    'employer' => (string) $employer,
+                    'total' => $count,
+                    'remote' => $employerRemote[$employer] ?? 0,
+                    'cities' => array_keys(self::top($groupCities)),
+                    'ids' => $newest,
+                ];
+            }
+        } else {
+            $hasMore = count($flat) > $limit;
+            // Stable sort: equal dates keep the scan order.
+            arsort($flat, SORT_STRING);
+            $ids = array_map(static fn (int $index): int => (int) $rows[$index]->id, array_slice(array_keys($flat), 0, $limit));
+        }
+
+        $publishedCounts = [];
+        foreach (JobFilters::PUBLISHED_OPTIONS as $days) {
+            $publishedCounts[$days] = $published[$days] ?? 0;
+        }
+
+        return [
+            'total' => $total,
+            'facets' => new Facets(
+                countries: self::top($countries),
+                cities: self::top($cities),
+                remote: array_merge(array_fill_keys(JobFilters::REMOTE_OPTIONS, 0), $remotes),
+                departments: self::top($departments),
+                published: $publishedCounts,
+                new: $newCount,
+                kinds: $kinds,
+            ),
+            'groups' => $groups,
+            'ids' => $ids,
+            'hasMore' => $hasMore,
+        ];
     }
 
     /**
-     * @return array<string, int>
+     * Countries and cities per posting id, as sets.
+     *
+     * @param  array<int, \stdClass>  $rows
+     * @return array{array<int, array<string, true>>, array<int, array<string, true>>}
      */
-    private function kindFacet(JobFilters $filters): array
+    private function locations(array $rows): array
     {
-        $rows = $this->query($filters)->toBase()
-            ->join('boards', 'boards.id', '=', 'job_postings.board_id')
-            ->select('boards.kind')
-            ->selectRaw('count(*) as total')
-            ->groupBy('boards.kind')
-            ->get();
+        $query = DB::table('job_posting_locations')->select('job_posting_id', 'city', 'country');
 
-        return $this->pairs($rows->all(), 'kind');
+        // Reading every location is cheaper than a long IN list, unless the
+        // free text left only a few postings.
+        if (count($rows) <= 2000) {
+            $query->whereIn('job_posting_id', array_map(static fn (\stdClass $row): int => (int) $row->id, $rows));
+        }
+
+        $countries = $cities = [];
+        foreach ($query->get() as $location) {
+            $id = (int) $location->job_posting_id;
+            if ($location->country !== null) {
+                $countries[$id][(string) $location->country] = true;
+            }
+            if ($location->city !== null) {
+                $cities[$id][(string) $location->city] = true;
+            }
+        }
+
+        return [$countries, $cities];
     }
 
     /**
-     * @param  list<string>  $terms
-     * @param  Builder<JobPosting>  $query
+     * One narrow row per active posting that matches the free text.
      */
-    private function applyTerms(Builder $query, array $terms): void
+    private function rows(JobFilters $filters): Builder
     {
+        $query = DB::table('job_postings')
+            ->where('job_postings.active', true)
+            ->select([
+                'job_postings.id', 'job_postings.board_id', 'job_postings.company', 'job_postings.remote',
+                'job_postings.department', 'job_postings.posted_at', 'job_postings.first_seen_at',
+            ])
+        ;
+
+        $terms = $filters->terms();
         if ($terms === []) {
-            return;
+            // MySQL prefers the clustered index; the covering index avoids
+            // reading the wide rows with descriptions.
+            if (DB::connection()->getDriverName() === 'mysql') {
+                $query->forceIndex('job_postings_search_index');
+            }
+
+            return $query;
         }
 
         $long = array_values(array_filter($terms, static fn (string $t): bool => mb_strlen($t) >= self::FULLTEXT_MIN_LENGTH));
-        $short = array_values(array_diff($terms, $long));
+        $like = array_values(array_diff($terms, $long));
 
-        if ($query->getConnection()->getDriverName() === 'mysql') {
+        if (DB::connection()->getDriverName() === 'mysql') {
             if ($long !== []) {
                 $query->whereFullText(
                     ['job_postings.title', 'job_postings.company', 'job_postings.description'],
@@ -317,42 +339,56 @@ final readonly class JobSearch
                 );
             }
         } else {
-            $short = $terms;
+            $like = $terms;
         }
 
-        foreach ($short as $term) {
+        foreach ($like as $term) {
             // Terms never contain % or _ (see JobFilters::terms()).
-            $like = '%'.$term.'%';
+            $pattern = '%'.$term.'%';
             $query->where(fn (Builder $q) => $q
-                ->where('job_postings.title', 'like', $like)
-                ->orWhere('job_postings.company', 'like', $like)
-                ->orWhere('job_postings.description', 'like', $like));
+                ->where('job_postings.title', 'like', $pattern)
+                ->orWhere('job_postings.company', 'like', $pattern)
+                ->orWhere('job_postings.description', 'like', $pattern));
         }
-    }
 
-    private function locationIds(string $column, string $value): QueryBuilder
-    {
-        return DB::table('job_posting_locations')->select('job_posting_id')->where($column, $value);
-    }
-
-    private function newSince(): Carbon
-    {
-        return Carbon::now()->subDays($this->newJobDays);
+        return $query;
     }
 
     /**
-     * @param  array<mixed>  $rows
-     * @return array<string, int>
+     * Ids of the newest postings among the given rows: posted_at, then id.
+     *
+     * @param  array<int, \stdClass>  $rows
+     * @param  list<int>  $indexes
+     * @return list<int>
      */
-    private function pairs(array $rows, string $column): array
+    private static function newest(array $rows, array $indexes, int $count): array
     {
-        $pairs = [];
-        foreach ($rows as $row) {
-            if (is_object($row)) {
-                $pairs[(string) $row->{$column}] = (int) $row->total;
-            }
+        $keys = [];
+        foreach ($indexes as $index) {
+            $row = $rows[$index];
+            $keys[] = $row->posted_at.str_pad((string) $row->id, 12, '0', STR_PAD_LEFT);
         }
 
-        return $pairs;
+        rsort($keys, SORT_STRING);
+
+        return array_map(static fn (string $key): int => (int) substr($key, -12), array_slice($keys, 0, $count));
+    }
+
+    /**
+     * The FACET_LIMIT largest counts, ties by name.
+     *
+     * @param  array<array-key, int>  $counts
+     * @return array<string, int>
+     */
+    private static function top(array $counts): array
+    {
+        uksort($counts, static fn (int|string $a, int|string $b): int => [$counts[$b], (string) $a] <=> [$counts[$a], (string) $b]);
+
+        $top = [];
+        foreach (array_slice($counts, 0, self::FACET_LIMIT, true) as $key => $count) {
+            $top[(string) $key] = $count;
+        }
+
+        return $top;
     }
 }

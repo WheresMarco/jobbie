@@ -33,10 +33,17 @@ class DemoSeeder extends Seeder
         'Restaurangbiträde', 'Kock', 'Elektriker', 'Snickare', 'Lärare', 'Förskollärare', 'HR-specialist',
     ];
 
+    /** Common words first: descriptions draw words with a skewed (Zipf like) distribution. */
     private const array WORDS = [
-        'team', 'kunder', 'utveckling', 'ansvar', 'erfarenhet', 'kollegor', 'flexibla', 'arbetstider', 'förmåner',
-        'friskvård', 'tillväxt', 'hållbarhet', 'kvalitet', 'service', 'digitala', 'lösningar', 'Laravel', 'React',
-        'vård', 'patienter', 'logistik', 'lager', 'försäljning', 'ekonomi', 'ledarskap', 'innovation', 'trygghet',
+        'erfarenhet', 'team', 'kunder', 'ansvar', 'utveckling', 'kollegor', 'arbetstider', 'förmåner', 'kvalitet',
+        'service', 'friskvård', 'tillväxt', 'flexibla', 'hållbarhet', 'digitala', 'lösningar', 'ledarskap',
+        'trygghet', 'innovation', 'ekonomi', 'försäljning', 'logistik', 'lager', 'vård', 'patienter', 'Laravel',
+        'React', 'körkort', 'truckkort', 'legitimation', 'semester', 'pension', 'kollektivavtal', 'provanställning',
+        'heltid', 'deltid', 'skiftarbete', 'helger', 'omsorg', 'skola', 'elever', 'barn', 'bygg', 'installation',
+        'underhåll', 'produktion', 'maskiner', 'kvalitetssäkring', 'redovisning', 'budget', 'analys', 'rapporter',
+        'Excel', 'SAP', 'Python', 'Java', 'Kotlin', 'Swift', 'Azure', 'AWS', 'Kubernetes', 'säkerhet', 'molnet',
+        'API', 'databaser', 'design', 'Figma', 'användare', 'kommunikation', 'marknadsföring', 'kampanjer',
+        'rekrytering', 'onboarding', 'arbetsmiljö', 'restaurang', 'kök', 'gäster', 'butik', 'kassa', 'inköp',
     ];
 
     private const array DEPARTMENTS = ['Teknik', 'Vård', 'Sälj', 'Ekonomi', 'Lager', 'Kundservice', 'HR', 'Marknad', 'Produkt'];
@@ -92,7 +99,10 @@ class DemoSeeder extends Seeder
 
             $words = [];
             for ($w = 0; $w < 60; $w++) {
-                $words[] = self::WORDS[mt_rand(0, count(self::WORDS) - 1)];
+                // Skewed: the first words are common, the rest rare, plus some unique noise.
+                $words[] = mt_rand(0, 3) === 0
+                    ? 'ord'.mt_rand(1, 20_000)
+                    : self::WORDS[(int) floor(count(self::WORDS) * (mt_rand() / mt_getrandmax()) ** 3)];
             }
 
             $postings[] = [

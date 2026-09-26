@@ -140,31 +140,39 @@
                 @endif
             </div>
         @elseif ($grouped)
+            @php($openNow = array_values(array_map(fn ($g) => $g->employer, array_filter($groups, fn ($g) => $g->open))))
             <div class="mt-4 space-y-3">
                 @foreach ($groups as $group)
-                    <details class="group rounded-xl border border-stone-200 bg-white" wire:key="group-{{ md5($group->employer) }}" @if ($loop->first) open @endif>
-                        <summary class="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                    <section class="rounded-xl border border-stone-200 bg-white" wire:key="group-{{ md5($group->employer) }}">
+                        <button type="button" aria-expanded="{{ $group->open ? 'true' : 'false' }}"
+                                wire:click="toggleGroup(@js($group->employer), @js($openNow))"
+                                class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left">
+                            <span @class(['text-stone-400 transition-transform', 'rotate-90' => $group->open]) aria-hidden="true">›</span>
                             <span class="font-semibold">{{ \App\Search\Highlighter::highlight($group->employer, $terms) }}</span>
                             <span class="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium tabular-nums">{{ $group->total }}</span>
                             @if ($group->remote > 0)
                                 <span class="text-xs text-accent-700">{{ trans_choice('ui.jobs.remote_count', $group->remote, ['count' => $group->remote]) }}</span>
                             @endif
                             <span class="min-w-0 flex-1 truncate text-sm text-stone-500">{{ implode(', ', array_slice($group->cities, 0, 5)) }}</span>
-                            @if ($group->siteUrl)
-                                <a href="{{ $group->siteUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm text-accent-700 hover:underline" @click.stop>{{ __('ui.jobs.career_site') }}</a>
-                            @endif
-                        </summary>
-                        <ul class="divide-y divide-stone-100 border-t border-stone-100 px-4">
-                            @foreach ($group->postings as $posting)
-                                @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => false])
-                            @endforeach
-                        </ul>
-                        @if ($group->total > count($group->postings))
-                            <p class="border-t border-stone-100 px-4 py-2 text-sm text-stone-500">
-                                {{ __('ui.jobs.more_in_group', ['count' => $group->total - count($group->postings)]) }}
-                            </p>
+                        </button>
+                        @if ($group->open)
+                            <ul class="divide-y divide-stone-100 border-t border-stone-100 px-4">
+                                @foreach ($group->postings as $posting)
+                                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => false])
+                                @endforeach
+                            </ul>
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-4 py-2 text-sm">
+                                <span class="text-stone-500">
+                                    @if ($group->total > count($group->postings))
+                                        {{ __('ui.jobs.more_in_group', ['count' => $group->total - count($group->postings)]) }}
+                                    @endif
+                                </span>
+                                @if ($group->siteUrl)
+                                    <a href="{{ $group->siteUrl }}" target="_blank" rel="noopener noreferrer" class="text-accent-700 hover:underline">{{ __('ui.jobs.career_site') }}</a>
+                                @endif
+                            </div>
                         @endif
-                    </details>
+                    </section>
                 @endforeach
             </div>
         @else

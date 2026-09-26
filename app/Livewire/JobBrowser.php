@@ -49,13 +49,35 @@ final class JobBrowser extends Component
     public int $limit = self::PAGE_SIZE;
 
     /**
+     * Employer groups the viewer has opened. Null until the first toggle,
+     * which means only the first group is open.
+     *
+     * @var list<string>|null
+     */
+    public ?array $open = null;
+
+    /**
      * Changing a filter starts over from the first page.
      */
     public function updated(string $property): void
     {
-        if ($property !== 'limit') {
+        if (! in_array($property, ['limit', 'open'], true)) {
             $this->limit = self::PAGE_SIZE;
+            $this->open = null;
         }
+    }
+
+    /**
+     * Open or close an employer group; its postings load when it opens.
+     *
+     * @param  array<mixed>  $currentlyOpen  The groups open on screen, so the first group's default state is kept.
+     */
+    public function toggleGroup(string $employer, array $currentlyOpen): void
+    {
+        $open = array_values(array_filter($currentlyOpen, is_string(...)));
+        $this->open = in_array($employer, $open, true)
+            ? array_values(array_diff($open, [$employer]))
+            : [...$open, $employer];
     }
 
     public function showMore(): void
@@ -65,7 +87,7 @@ final class JobBrowser extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'limit');
+        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'limit', 'open');
     }
 
     public function filters(): JobFilters
@@ -93,20 +115,17 @@ final class JobBrowser extends Component
     {
         $filters = $this->filters();
         $grouped = $this->view !== 'flat';
-
-        $groups = $grouped ? $search->groups($filters, $this->limit + 1) : [];
-        $postings = $grouped ? [] : $search->postings($filters, $this->limit + 1);
-        $hasMore = count($grouped ? $groups : $postings) > $this->limit;
+        $result = $search->search($filters, $grouped, $this->limit, $this->open);
 
         return view('livewire.job-browser', [
             'filters' => $filters,
             'terms' => $filters->terms(),
-            'total' => $search->count($filters),
-            'facets' => $search->facets($filters),
+            'total' => $result->total,
+            'facets' => $result->facets,
             'grouped' => $grouped,
-            'groups' => array_slice($groups, 0, $this->limit),
-            'postings' => array_slice($postings, 0, $this->limit),
-            'hasMore' => $hasMore,
+            'groups' => $result->groups,
+            'postings' => $result->postings,
+            'hasMore' => $result->hasMore,
         ]);
     }
 }

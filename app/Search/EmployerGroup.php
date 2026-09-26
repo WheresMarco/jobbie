@@ -13,8 +13,8 @@ use App\Models\JobPosting;
 final readonly class EmployerGroup
 {
     /**
-     * @param  list<JobPosting>  $postings  The newest postings, at most JobSearch::POSTINGS_PER_GROUP.
-     * @param  list<string>  $cities
+     * @param  list<JobPosting>  $postings  The newest postings (at most JobSearch::POSTINGS_PER_GROUP), loaded only for open groups.
+     * @param  list<string>  $cities  Most common cities first.
      */
     public function __construct(
         public string $employer,
@@ -23,6 +23,7 @@ final readonly class EmployerGroup
         public array $postings,
         public array $cities,
         public ?string $siteUrl,
+        public bool $open = false,
     ) {
     }
 }

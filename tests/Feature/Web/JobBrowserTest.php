@@ -174,3 +174,31 @@ it('groups postings without company under the career site name', function (): vo
 it('renders the page', function (): void {
     $this->get('/')->assertOk()->assertSeeLivewire(JobBrowser::class)->assertSee('Teamtailor-radar');
 });
+
+it('opens only the first group until the viewer toggles groups', function (): void {
+    $component = Livewire::test(JobBrowser::class);
+    $groups = $component->viewData('groups');
+
+    expect($groups[0]->open)->toBeTrue()
+        ->and($groups[0]->postings)->toHaveCount(3)
+        ->and($groups[1]->open)->toBeFalse()
+        ->and($groups[1]->postings)->toBe([])
+        // Cities come from the scan, so closed groups still show them.
+        ->and($groups[1]->cities)->toBe(['Malmö']);
+
+    $component->call('toggleGroup', 'Bemanning AB', ['Kry']);
+    $groups = $component->viewData('groups');
+
+    expect($component->get('open'))->toBe(['Kry', 'Bemanning AB'])
+        ->and($groups[1]->postings)->toHaveCount(1)
+        ->and($groups[1]->siteUrl)->toBe('https://bemanning.teamtailor.com/');
+
+    $component->call('toggleGroup', 'Kry', ['Kry', 'Bemanning AB']);
+
+    expect($component->get('open'))->toBe(['Bemanning AB'])
+        ->and($component->viewData('groups')[0]->postings)->toBe([]);
+
+    // A new filter starts over with the first group open.
+    $component->set('q', 'kry');
+    expect($component->get('open'))->toBeNull();
+});
