@@ -12,6 +12,8 @@ use App\Net\DomainName;
 use App\Net\PublicSuffixList;
 use App\Net\StreamCertificateFetcher;
 use App\Net\SystemDnsResolver;
+use App\Scraping\FeedClient;
+use App\Scraping\RssEnricher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,6 +35,16 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(CertificateFetcher::class, static fn (): CertificateFetcher => new StreamCertificateFetcher(
             timeout: config()->integer('radar.tls_timeout'),
+        ));
+
+        $this->app->bind(FeedClient::class, static fn (): FeedClient => new FeedClient(
+            userAgent: config()->string('radar.user_agent'),
+            timeout: config()->integer('radar.http_timeout'),
+        ));
+
+        $this->app->bind(RssEnricher::class, static fn (): RssEnricher => new RssEnricher(
+            userAgent: config()->string('radar.user_agent'),
+            timeout: config()->integer('radar.http_timeout'),
         ));
 
         $this->app->bind(Calibrator::class, static fn (Application $app): Calibrator => new Calibrator(

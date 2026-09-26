@@ -34,4 +34,13 @@ return [
             'created' => 'Nya',
         ],
     ],
+    'scrape' => [
+        'nothing' => 'Inga karriärsidor att skrapa.',
+        'dispatched' => ':count karriärsidor köade (batch :batch).',
+        'columns' => [
+            'status' => 'Status',
+            'boards' => 'Karriärsidor',
+            'jobs' => 'Annonser',
+        ],
+    ],
 ];

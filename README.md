@@ -2,7 +2,7 @@
 
 Laravel-applikation som hittar företag som annonserar via Teamtailor, även när karriärsidan ligger på egen domän (till exempel `career.foretag.se`), samlar alla öppna annonser och visar dem i ett filtrerbart webbgränssnitt. Fokus ligger på svenska företag.
 
-Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck) och Fas 2 (domänmodell).
+Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell) och Fas 3 (skrapning).
 
 ## Krav
 
@@ -41,10 +41,22 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
 | `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
+| `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--no-wait` avslutar direkt efter köandet |
 
 `radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
 
 Registrerbar domän räknas fram med Public Suffix List. En kopia ligger i `resources/psl/` och används tills `radar:update-psl` har hämtat en egen.
+
+## Skrapning
+
+Varje karriärsida skrapas av köjobbet `ScrapeBoard`. Det är unikt per karriärsida och gör högst en förfrågan åt gången mot samma värd.
+
+1. `jobs.json` hämtas sida för sida (`?page=N`, 100 poster per sida) tills en sida har färre än 100 poster. Om en full sida inte ger några nya id, om en senare sida inte går att läsa eller om gränsen på 100 sidor nås, räknas läsningen som trunkerad.
+2. `jobs.rss` hämtas med `?offset=N` för avdelning och distansstatus. Fel här loggas men stoppar aldrig skrapningen.
+3. Annonserna sparas med upsert på `(board_id, feed_id)`. `first_seen_at` behålls, alla orter sparas i `job_posting_locations` och land normaliseras till ISO-kod.
+4. Annonser som försvunnit inaktiveras, men bara efter en fullständig läsning.
+
+Status på karriärsidan: `active` (har annonser), `empty` (flödet är tomt), `dead` (404, 410 eller svar som inte är ett jobbflöde, annonserna stängs) och `error` (tillfälligt fel, senast kända annonser behålls). Döda sidor provas igen efter `RADAR_DEAD_RECHECK_DAYS` dagar.
 
 ## Konfiguration
 

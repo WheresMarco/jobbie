@@ -1,0 +1,27 @@
+{
+  "id": "4711001",
+  "url": "https://career.example.se/jobs/4711001-backendutvecklare",
+  "title": "Backendutvecklare &amp; tech lead",
+  "content_html": "&lt;p&gt;Vi söker en &lt;strong&gt;backendutvecklare&lt;/strong&gt;.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;PHP&lt;/li&gt;&lt;li&gt;Laravel&lt;/li&gt;&lt;/ul&gt;&lt;script&gt;alert(1)&lt;/script&gt;&lt;p&gt;Lön &amp;amp; förmåner&amp;nbsp;enligt avtal.&lt;/p&gt;",
+  "date_published": "2026-09-10T09:30:00+02:00",
+  "_jobposting": {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    "title": "Backendutvecklare & tech lead",
+    "datePosted": "2026-09-10T09:30:00+02:00",
+    "employmentType": ["FULL_TIME", "CONTRACTOR"],
+    "jobLocationType": "TELECOMMUTE",
+    "hiringOrganization": {"@type": "Organization", "name": "Exempel Bemanning AB"},
+    "jobLocation": [
+      {"@type": "Place", "address": {"@type": "PostalAddress", "addressLocality": "Stockholm", "addressCountry": "Sweden"}},
+      {"@type": "Place", "address": {"@type": "PostalAddress", "addressLocality": "Göteborg", "addressCountry": "Sverige"}},
+      {"@type": "Place", "address": {"@type": "PostalAddress", "addressLocality": "Oslo", "addressCountry": {"@type": "Country", "name": "NO"}}},
+      {"@type": "Place", "address": {"@type": "PostalAddress", "addressLocality": "Stockholm", "addressCountry": "SE"}}
+    ],
+    "baseSalary": {
+      "@type": "MonetaryAmount",
+      "currency": "SEK",
+      "value": {"@type": "QuantitativeValue", "minValue": 45000, "maxValue": 60000, "unitText": "MONTH"}
+    }
+  }
+}

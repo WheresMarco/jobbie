@@ -8,6 +8,7 @@ use App\Net\Contracts\CertificateFetcher;
 use App\Net\Contracts\DnsResolver;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Tests\Fakes\FakeCertificateFetcher;
 use Tests\Fakes\FakeDnsResolver;
 
@@ -23,6 +24,8 @@ abstract class TestCase extends BaseTestCase
 
         // Every test runs offline.
         Http::preventStrayRequests();
+        // Retry backoff and progress polling must not slow tests down.
+        Sleep::fake();
 
         $this->dns = FakeDnsResolver::fromCalibrationFixtures();
         $this->certificates = new FakeCertificateFetcher();

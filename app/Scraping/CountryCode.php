@@ -13,8 +13,15 @@ use Locale;
  */
 final class CountryCode
 {
-    /** Region codes that ICU knows but that are not countries. */
-    private const array NOT_COUNTRIES = ['EU', 'EZ', 'UN', 'QO', 'ZZ'];
+    /**
+     * Region codes ICU knows that are not current countries: groupings and
+     * withdrawn codes that share a name with their successor (UK and GB are
+     * both "United Kingdom", DD and DE both "Germany" and so on).
+     */
+    private const array SKIPPED = [
+        'EU', 'EZ', 'UN', 'QO', 'ZZ',
+        'AN', 'BU', 'CS', 'DD', 'DY', 'FX', 'HV', 'NH', 'RH', 'SU', 'TP', 'UK', 'VD', 'YD', 'YU', 'ZR',
+    ];
 
     /** Common spellings that ICU does not produce. */
     private const array ALIASES = [
@@ -54,11 +61,11 @@ final class CountryCode
             return self::$map;
         }
 
-        $map = self::ALIASES;
+        $map = [];
         foreach (range('A', 'Z') as $first) {
             foreach (range('A', 'Z') as $second) {
                 $code = $first.$second;
-                if (in_array($code, self::NOT_COUNTRIES, true)) {
+                if (in_array($code, self::SKIPPED, true)) {
                     continue;
                 }
 
@@ -77,6 +84,6 @@ final class CountryCode
             }
         }
 
-        return self::$map = $map;
+        return self::$map = [...$map, ...self::ALIASES];
     }
 }

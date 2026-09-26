@@ -34,4 +34,13 @@ return [
             'created' => 'New',
         ],
     ],
+    'scrape' => [
+        'nothing' => 'No career sites to scrape.',
+        'dispatched' => ':count career sites queued (batch :batch).',
+        'columns' => [
+            'status' => 'Status',
+            'boards' => 'Career sites',
+            'jobs' => 'Postings',
+        ],
+    ],
 ];
