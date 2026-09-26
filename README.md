@@ -2,7 +2,7 @@
 
 Laravel-applikation som hittar företag som annonserar via Teamtailor, även när karriärsidan ligger på egen domän (till exempel `career.foretag.se`), samlar alla öppna annonser och visar dem i ett filtrerbart webbgränssnitt. Fokus ligger på svenska företag.
 
-Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell) och Fas 3 (skrapning).
+Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell), Fas 3 (skrapning), Fas 4 (verifiering), källorna A till D i Fas 5 och Fas 6 (deduplicering).
 
 ## Krav
 
@@ -41,11 +41,37 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
 | `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
+| `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
+| `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
 | `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--no-wait` avslutar direkt efter köandet |
 
 `radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
 
 Registrerbar domän räknas fram med Public Suffix List. En kopia ligger i `resources/psl/` och används tills `radar:update-psl` har hämtat en egen.
+
+## Upptäckt och verifiering
+
+Kandidater (möjliga karriärsidor) och verifierade karriärsidor ligger i separata tabeller. Varje kandidat har en källa och en styrka.
+
+| Källa | Styrka | Hur |
+| --- | --- | --- |
+| A, omdirigeringar | stark | Vid varje skrapning sparas slutvärden för `jobs.json` och värden i flödets `home_page_url` som alias. Inga extra anrop |
+| B, Platsbanken | stark | JobTech JobStream: först `/snapshot` (cirka 300 MB, läses strömmande från disk), sedan bara ändringar via `/stream?date=`. Ansökningslänkar med sökvägen `/jobs/<siffror>-` eller värd under `teamtailor.com` blir kandidater. Arbetsgivarens webbadress blir en basdomän för källa C. Annonserna sparas i `platsbanken_ads` |
+| C, prefix | svag | Varje prefix i `config/radar.php` provas mot alla kända basdomäner och mot registrerbara domäner för kända egna domäner. Prefixet sparas i `source_ref` så att träffar kan räknas per prefix |
+| D, Common Crawl | stark | Alla `*.teamtailor.com` i de senaste indexen (`RADAR_COMMONCRAWL_INDEXES`, standard tre) via CDX-API:t, sida för sida med en sekunds paus |
+
+JobStreams endpoints och fält är kontrollerade mot JobStreams källkod (gitlab.com/arbetsformedlingen/job-ads/jobsearch-apis), eftersom dokumentationen inte gick att nå från utvecklingsmiljön. API:et kräver ingen nyckel. `RADAR_JOBSTREAM_API_KEY` skickas som `api-key` bara om den är satt.
+
+Verifieringen går från billigt till dyrt:
+
+1. **DNS.** A-post via DNS over HTTPS, med hela CNAME-kedjan. Saknas namnet blir steget `no_dns`. DNS-fel lämnar kandidaten som `new` till nästa körning. Slug-adresser under `teamtailor.com` hoppar över DNS eftersom de ligger bakom ett jokertecken.
+2. **Fingeravtryck.** CNAME-kedjan eller adresserna jämförs med `Fingerprint`. Svaga kandidater utan träff avvisas här, starka går vidare.
+3. **HTTP.** `jobs.json` hämtas med omdirigeringar. Bara ett läsbart jobbflöde ger `verified`.
+4. **Reserv.** Svarar en stark kandidat 404 letas HTML-markörer på startsidan. En träff loggas som `fingerprint_match`, men ingen karriärsida skapas utan flöde.
+
+## Deduplicering
+
+Karriärsidor skapas bara via `BoardResolver`. Kanonisk värd är värden i flödets `home_page_url`, och annars värden där `jobs.json` hamnade efter omdirigeringar. Alla andra värdar som leder dit sparas som alias. Om en slug visar sig höra till en redan känd egen domän slås karriärsidorna ihop. Detsamma gäller två karriärsidor med exakt samma uppsättning aktiva annonser (minst tre). Den som upptäcktes först behålls, annonserna flyttas och den andras värd blir alias.
 
 ## Skrapning
 

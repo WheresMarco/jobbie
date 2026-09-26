@@ -16,4 +16,7 @@ enum BoardAliasRelation: string
     case Seed = 'seed';
 
     case Cname = 'cname';
+
+    /** A board merged into another because both served the same feed. */
+    case Merged = 'merged';
 }

@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\FollowsBatches;
 use App\Console\Concerns\Translates;
 use App\Enums\BoardStatus;
 use App\Jobs\ScrapeBoard;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Net\DomainName;
-use Illuminate\Bus\Batch;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Sleep;
 
 final class RadarScrape extends Command
 {
+    use FollowsBatches;
     use Translates;
 
     protected $signature = 'radar:scrape
@@ -81,21 +81,6 @@ final class RadarScrape extends Command
             ->where('status', '!=', BoardStatus::Dead)
             ->orWhereNull('checked_at')
             ->orWhere('checked_at', '<', $recheckBefore));
-    }
-
-    private function follow(Batch $batch): void
-    {
-        $bar = $this->output->createProgressBar($batch->totalJobs);
-        $bar->start();
-
-        while (($current = Bus::findBatch($batch->id)) !== null && ! $current->finished() && ! $current->cancelled()) {
-            $bar->setProgress($current->processedJobs() + $current->failedJobs);
-            Sleep::for(2)->seconds();
-        }
-
-        $bar->setProgress($batch->totalJobs);
-        $bar->finish();
-        $this->newLine(2);
     }
 
     /**

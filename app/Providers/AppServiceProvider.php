@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Discovery\Calibration\Calibrator;
+use App\Discovery\JobStream\JobStreamSync;
+use App\Discovery\Sources\CommonCrawlSource;
+use App\Discovery\Sources\PrefixSource;
+use App\Discovery\Verifier;
 use App\Net\Contracts\CertificateFetcher;
 use App\Net\Contracts\DnsResolver;
 use App\Net\DohDnsResolver;
@@ -45,6 +49,31 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(RssEnricher::class, static fn (): RssEnricher => new RssEnricher(
             userAgent: config()->string('radar.user_agent'),
             timeout: config()->integer('radar.http_timeout'),
+        ));
+
+        $this->app->bind(Verifier::class, static fn (Application $app): Verifier => new Verifier(
+            dns: $app->make(DnsResolver::class),
+            userAgent: config()->string('radar.user_agent'),
+            timeout: config()->integer('radar.http_timeout'),
+            poolSize: config()->integer('radar.http_pool_size'),
+        ));
+
+        $this->app->bind(PrefixSource::class, static fn (Application $app): PrefixSource => new PrefixSource(
+            prefixes: array_values(array_map(strval(...), config()->array('radar.prefixes'))),
+            domains: $app->make(DomainName::class),
+        ));
+
+        $this->app->bind(CommonCrawlSource::class, static fn (): CommonCrawlSource => new CommonCrawlSource(
+            indexCount: config()->integer('radar.commoncrawl.index_count'),
+            userAgent: config()->string('radar.user_agent'),
+            timeout: config()->integer('radar.http_timeout'),
+        ));
+
+        $this->app->bind(JobStreamSync::class, static fn (Application $app): JobStreamSync => new JobStreamSync(
+            domains: $app->make(DomainName::class),
+            baseUrl: config()->string('radar.jobstream.base_url'),
+            apiKey: is_string(config('radar.jobstream.api_key')) ? config('radar.jobstream.api_key') : null,
+            userAgent: config()->string('radar.user_agent'),
         ));
 
         $this->app->bind(Calibrator::class, static fn (Application $app): Calibrator => new Calibrator(

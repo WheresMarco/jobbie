@@ -43,4 +43,20 @@ return [
             'jobs' => 'Annonser',
         ],
     ],
+    'verify' => [
+        'nothing' => 'Inga kandidater att verifiera.',
+        'dispatched' => ':count kandidater köade i :batches batchar.',
+        'columns' => [
+            'stage' => 'Steg',
+            'candidates' => 'Kandidater',
+        ],
+    ],
+    'discover' => [
+        'unknown_source' => 'Okänd källa: :source.',
+        'implicit' => 'Källan :source körs automatiskt vid skrapning.',
+        'queued' => 'Källan :source köad.',
+        'collected' => 'Källan :source gav :seen värdar, :created nya kandidater (:invalid ogiltiga).',
+        'jobstream_synced' => 'JobStream: :ads annonser, :removed borttagna, :domains nya domäner.',
+        'domains_imported' => ':count nya domäner importerades.',
+    ],
 ];

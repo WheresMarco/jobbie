@@ -43,4 +43,20 @@ return [
             'jobs' => 'Postings',
         ],
     ],
+    'verify' => [
+        'nothing' => 'No candidates to verify.',
+        'dispatched' => ':count candidates queued in :batches batches.',
+        'columns' => [
+            'stage' => 'Stage',
+            'candidates' => 'Candidates',
+        ],
+    ],
+    'discover' => [
+        'unknown_source' => 'Unknown source: :source.',
+        'implicit' => 'The :source source runs automatically when scraping.',
+        'queued' => 'Source :source queued.',
+        'collected' => 'Source :source gave :seen hosts, :created new candidates (:invalid invalid).',
+        'jobstream_synced' => 'JobStream: :ads ads, :removed removed, :domains new domains.',
+        'domains_imported' => ':count new domains imported.',
+    ],
 ];

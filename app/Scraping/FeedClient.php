@@ -125,15 +125,26 @@ final readonly class FeedClient
     }
 
     /**
-     * A decoded JSON feed whose "items" is a list.
-     *
      * @return array<mixed>
      *
      * @throws FeedException
      */
     private static function decode(Response $response): array
     {
-        $json = json_decode($response->body(), true);
+        return self::decodeBody($response->body());
+    }
+
+    /**
+     * Decode a jobs.json body. Accepts a JSON Feed whose "items" is a list
+     * that is empty or has at least one item with a _jobposting block.
+     *
+     * @return array<mixed>
+     *
+     * @throws FeedException When the body is not a Teamtailor job feed.
+     */
+    public static function decodeBody(string $body): array
+    {
+        $json = json_decode($body, true);
 
         if (! is_array($json)
             || ! is_string($json['version'] ?? null)

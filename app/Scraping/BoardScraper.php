@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Scraping;
 
+use App\Discovery\Sources\RedirectSource;
 use App\Enums\BoardStatus;
 use App\Models\Board;
 use App\Models\JobPosting;
@@ -23,6 +24,7 @@ final readonly class BoardScraper
         private FeedClient $feeds,
         private RssEnricher $rss,
         private JobFeedParser $parser,
+        private RedirectSource $redirects,
     ) {
     }
 
@@ -72,13 +74,18 @@ final readonly class BoardScraper
             return $deactivated;
         });
 
-        return new ScrapeResult(
+        $result = new ScrapeResult(
             status: $board->status,
             jobCount: $board->job_count,
             deactivated: $deactivated,
             truncated: $feed->truncated,
             feed: $feed,
         );
+
+        // Source A: record where the feed lives and merge duplicate boards.
+        $this->redirects->record($board, $feed);
+
+        return $result;
     }
 
     /**
