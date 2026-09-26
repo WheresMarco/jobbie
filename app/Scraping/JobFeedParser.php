@@ -37,7 +37,7 @@ final class JobFeedParser
             url: $url,
             company: self::str(self::arr($posting['hiringOrganization'] ?? null)['name'] ?? null) ?? $feedTitle,
             locations: self::locations($posting['jobLocation'] ?? null),
-            remote: $rss?->remote ?? (self::isTelecommute($posting) ? RemoteStatus::Fully : null),
+            remote: $rss->remote ?? (self::isTelecommute($posting) ? RemoteStatus::Fully : null),
             department: $rss?->department,
             employmentType: self::employmentType($posting['employmentType'] ?? null),
             salaryText: self::salary($posting['baseSalary'] ?? null),
