@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji';
+}
+
+@theme {
+    --color-accent-50: oklch(0.97 0.02 170);
+    --color-accent-100: oklch(0.93 0.05 170);
+    --color-accent-600: oklch(0.55 0.12 170);
+    --color-accent-700: oklch(0.47 0.11 170);
+}
+
+mark {
+    @apply rounded-sm bg-amber-200/70 px-0.5 text-inherit;
+}

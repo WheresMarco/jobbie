@@ -1,0 +1,61 @@
+{
+    "host": "jobb.nordicwellness.se",
+    "root_domain": "nordicwellness.se",
+    "captured_at": "2026-09-26T09:40:56+00:00",
+    "dns": {
+        "a": {
+            "host": "jobb.nordicwellness.se",
+            "type": "A",
+            "status": "ok",
+            "cname_chain": [
+                "ext.teamtailor.com",
+                "teamtailor.map.fastly.net"
+            ],
+            "values": [
+                "151.101.193.242",
+                "151.101.65.242",
+                "151.101.129.242",
+                "151.101.1.242"
+            ],
+            "error": null
+        },
+        "aaaa": {
+            "host": "jobb.nordicwellness.se",
+            "type": "AAAA",
+            "status": "ok",
+            "cname_chain": [
+                "ext.teamtailor.com",
+                "teamtailor.map.fastly.net"
+            ],
+            "values": [
+                "2a04:4e42:600::498",
+                "2a04:4e42:400::498",
+                "2a04:4e42:200::498",
+                "2a04:4e42::498"
+            ],
+            "error": null
+        },
+        "root_txt": {
+            "host": "nordicwellness.se",
+            "type": "TXT",
+            "status": "ok",
+            "cname_chain": [],
+            "values": [
+                "v=spf1 include:spf.protection.outlook.com include:amazonses.com include:carmamail.com include:mailgun.org ip4:212.91.140.137 ip4:89.189.194.9 ip4:89.189.201.128/25 -all",
+                "aa1746a1074b903df3de93fe2edf3240",
+                "google-site-verification=8H1XlIOrWmee_ZAhisxPgupEh5Zy62nn5eaoJMgAAwc",
+                "google-gws-recovery-domain-verification=72594434",
+                "google-site-verification=cUqrc1NN_3O64_pK-5K8ivOKQO_jcYNlOLj0LKHLUzI"
+            ],
+            "error": null
+        }
+    },
+    "tls": null,
+    "http": [],
+    "matches": {
+        "cname": "ext",
+        "address": "151.101.193.242/32",
+        "txt": null
+    },
+    "errors": []
+}

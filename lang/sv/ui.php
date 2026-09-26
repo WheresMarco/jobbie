@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+return [
+    'app_name' => 'Teamtailor-radar',
+    'nav' => [
+        'jobs' => 'Jobb',
+        'stats' => 'Statistik',
+    ],
+    'jobs' => [
+        'search_placeholder' => 'Sök titel, arbetsgivare eller text',
+        'view' => 'Visning',
+        'view_grouped' => 'Per arbetsgivare',
+        'view_flat' => 'Alla annonser',
+        'count' => '{0} Inga annonser|{1} :count annons|[2,*] :count annonser',
+        'loading' => 'Laddar …',
+        'empty_database' => 'Inga annonser ännu.',
+        'empty_database_hint' => 'Kör radar:discover, radar:verify och radar:scrape för att fylla databasen.',
+        'empty_filters' => 'Inga annonser matchar filtren.',
+        'remote_count' => '{1} :count på distans|[2,*] :count på distans',
+        'career_site' => 'Karriärsida',
+        'more_in_group' => 'och :count till hos samma arbetsgivare',
+        'show_more' => 'Visa fler',
+        'in_platsbanken' => 'Finns även i Platsbanken',
+        'new_badge' => 'Ny',
+    ],
+    'filters' => [
+        'title' => 'Filter',
+        'clear' => 'Rensa filter',
+        'all' => 'Alla',
+        'country' => 'Land',
+        'city' => 'Ort',
+        'remote' => 'Arbetsplats',
+        'department' => 'Avdelning',
+        'published' => 'Publicerad',
+        'any_time' => 'När som helst',
+        'within_days' => '{1} Senaste dygnet|[2,*] Senaste :days dagarna',
+        'new' => 'Upptäckt senaste :days dagarna',
+        'not_in_platsbanken' => 'Bara annonser som saknas i Platsbanken',
+        'kind' => 'Karriärsida',
+    ],
+    'remote' => [
+        'fully' => 'Distans',
+        'hybrid' => 'Hybrid',
+        'onsite' => 'På plats',
+        'unknown' => 'Ej angivet',
+    ],
+    'stats' => [
+        'sources' => 'Upptäcktskällor',
+        'boards' => 'Karriärsidor',
+        'by_kind' => 'Per typ',
+        'by_status' => 'Per status',
+        'active_postings' => 'Aktiva annonser',
+        'prefix_hits' => 'Verifierade karriärsidor per prefix',
+        'txt_without_board' => 'Kunder enligt TXT utan hittad karriärsida',
+        'in_platsbanken' => 'Finns även i Platsbanken',
+        'platsbanken_detail' => ':matched av :active (:apply_url via ansökningslänk, :org_title via organisationsnummer och titel)',
+        'none' => 'Inga ännu.',
+    ],
+];

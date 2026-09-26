@@ -1,0 +1,48 @@
+{
+    "host": "jobs.timefold.ai",
+    "root_domain": "timefold.ai",
+    "captured_at": "2026-09-26T09:40:47+00:00",
+    "dns": {
+        "a": {
+            "host": "jobs.timefold.ai",
+            "type": "A",
+            "status": "ok",
+            "cname_chain": [
+                "ext.teamtailor.com",
+                "teamtailor.map.fastly.net"
+            ],
+            "values": [
+                "151.101.193.242",
+                "151.101.129.242",
+                "151.101.65.242",
+                "151.101.1.242"
+            ],
+            "error": null
+        },
+        "aaaa": {
+            "host": "jobs.timefold.ai",
+            "type": "AAAA",
+            "status": "ok",
+            "cname_chain": [
+                "ext.teamtailor.com",
+                "teamtailor.map.fastly.net"
+            ],
+            "values": [
+                "2a04:4e42:400::498",
+                "2a04:4e42:600::498",
+                "2a04:4e42:200::498",
+                "2a04:4e42::498"
+            ],
+            "error": null
+        },
+        "root_txt": null
+    },
+    "tls": null,
+    "http": [],
+    "matches": {
+        "cname": "ext",
+        "address": "151.101.193.242/32",
+        "txt": null
+    },
+    "errors": []
+}
