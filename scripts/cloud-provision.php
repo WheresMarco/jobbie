@@ -41,8 +41,14 @@ $basicPassword = required('RADAR_BASIC_AUTH_PASSWORD');
 $application = findApplication($appName, $repository);
 if ($application === null) {
     step("Creating application {$appName} in {$region} with a Laravel MySQL database (cloud ship)");
-    $shipped = cloud(['ship', '--source-provider=github', '--database=mysql', '--database-preset=dev', "--name={$appName}", "--region={$region}"]);
-    $application = cloud(['application:get', (string) ($shipped['application_id'] ?? '')]);
+    try {
+        cloud(['ship', '--source-provider=github', '--database=mysql', '--database-preset=dev', "--name={$appName}", "--region={$region}"]);
+    } catch (RuntimeException $e) {
+        // ship also deploys at once, before the settings below exist. If that
+        // first deploy fails, the application still exists and the rest can run.
+        step('ship reported an error, continuing if the application was created: '.$e->getMessage());
+    }
+    $application = findApplication($appName, $repository) ?? fail('The application was not created.');
 } else {
     step("Using existing application {$application['name']} ({$application['id']})");
 }
