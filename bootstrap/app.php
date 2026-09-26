@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Behind a load balancer (Laravel Cloud, Docker proxies): trust its
+        // X-Forwarded-* headers so URLs and redirects use https.
+        $middleware->trustProxies(at: '*');
+
         // Covers every web route, including Livewire updates and Horizon.
         $middleware->web(append: [BasicAuth::class]);
     })

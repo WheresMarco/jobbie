@@ -90,3 +90,12 @@ it('says so when there is nothing to verify', function (): void {
 
     Bus::assertNothingBatched();
 });
+
+it('queues verification from the end of the discovery chain', function (): void {
+    Bus::fake();
+    Candidate::factory()->create(['host' => 'jobb.new.se']);
+
+    (new App\Jobs\QueueVerification())->handle();
+
+    Bus::assertBatched(fn (PendingBatch $batch): bool => verifyBatchHosts($batch) === ['jobb.new.se']);
+});

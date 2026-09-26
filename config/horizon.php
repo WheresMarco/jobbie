@@ -199,6 +199,7 @@ return [
     */
 
     'defaults' => [
+        // Scraping and verification.
         'supervisor-1' => [
             'connection' => 'redis',
             'queue' => ['default'],
@@ -207,9 +208,23 @@ return [
             'maxProcesses' => 1,
             'maxTime' => 0,
             'maxJobs' => 0,
-            'memory' => 128,
+            'memory' => 256,
             'tries' => 1,
-            'timeout' => 60,
+            'timeout' => 900,
+            'nice' => 0,
+        ],
+
+        // Discovery: one long job at a time (JobStream, Common Crawl).
+        'supervisor-discovery' => [
+            'connection' => 'redis-long',
+            'queue' => ['discovery'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => 3700,
             'nice' => 0,
         ],
     ],
@@ -217,16 +232,18 @@ return [
     'environments' => [
         'production' => [
             'supervisor-1' => [
-                'maxProcesses' => 10,
+                'maxProcesses' => (int) env('HORIZON_MAX_PROCESSES', 10),
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'supervisor-discovery' => [],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 3,
             ],
+            'supervisor-discovery' => [],
         ],
     ],
 

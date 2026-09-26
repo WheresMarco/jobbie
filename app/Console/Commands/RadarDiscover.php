@@ -10,6 +10,7 @@ use App\Discovery\JobStream\JobStreamSync;
 use App\Discovery\SourceRegistry;
 use App\Enums\CandidateSourceType;
 use App\Jobs\CollectCandidates;
+use App\Jobs\QueueVerification;
 use App\Jobs\SyncJobStream;
 use App\Models\Domain;
 use App\Net\DomainName;
@@ -24,7 +25,8 @@ final class RadarDiscover extends Command
     protected $signature = 'radar:discover
         {--source=* : Sources to run (jobstream, prefixes, commoncrawl); default from config}
         {--domains= : CSV with base domains for prefix probing (domain, org number, company name)}
-        {--sync : Run in this process instead of queueing}';
+        {--sync : Run in this process instead of queueing}
+        {--verify : Queue verification after the sources have run}';
 
     protected $description = 'Collect candidate hosts from the discovery sources';
 
@@ -43,6 +45,8 @@ final class RadarDiscover extends Command
             }
             $this->components->info($this->t('radar.discover.domains_imported', ['count' => $imported]));
         }
+
+        $chain = [];
 
         foreach ($types as $type) {
             if (! SourceRegistry::isCollectable($type)) {
@@ -65,13 +69,25 @@ final class RadarDiscover extends Command
                 continue;
             }
 
+            // Queued sources run one after another in a single chain.
             if ($type === CandidateSourceType::JobStream) {
-                Bus::chain([new SyncJobStream(), new CollectCandidates($type)])->dispatch();
-            } else {
-                CollectCandidates::dispatch($type);
+                $chain[] = new SyncJobStream();
             }
+            $chain[] = new CollectCandidates($type);
 
             $this->components->info($this->t('radar.discover.queued', ['source' => $type->value]));
+        }
+
+        if ($this->option('verify') === true) {
+            if ($this->option('sync') === true) {
+                $this->call('radar:verify', ['--no-wait' => true]);
+            } else {
+                $chain[] = new QueueVerification();
+            }
+        }
+
+        if ($chain !== []) {
+            Bus::chain($chain)->dispatch();
         }
 
         return self::SUCCESS;

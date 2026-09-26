@@ -82,7 +82,8 @@ it('schedules scraping, discovery, the suffix list and Horizon snapshots', funct
     $find = fn (string $needle) => collect($commands)->first(fn ($c) => str_contains((string) $c[0], $needle));
 
     expect($find('radar:scrape')[1])->toBe('0 3 * * *')
-        ->and($find('radar:discover --sync')[1])->toBe('0 1 * * 1')
+        ->and($find('radar:discover --verify')[1])->toBe('0 1 * * 1')
         ->and($find('radar:update-psl')[1])->toBe('0 4 * * 0')
+        ->and($find('radar:match-platsbanken')[1])->toBe('30 5 * * *')
         ->and($find('horizon:snapshot')[1])->toBe('*/5 * * * *');
 });

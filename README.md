@@ -117,6 +117,48 @@ Premissen är att annonserna på Teamtailor-sidorna inte syns någon annanstans.
 
 Matchade annonser får märket "Finns även i Platsbanken", gränssnittet har filtret "Bara annonser som saknas i Platsbanken", och andelen syns på statistiksidan.
 
+## Driftsättning på Laravel Cloud
+
+Appen är förberedd för [Laravel Cloud](https://cloud.laravel.com): tunga jobb körs i Horizon, schemaläggaren köar bara arbete, och appen litar på lastbalanserarens `X-Forwarded-*`-huvuden så att länkar blir `https`. Själva miljön skapas i Clouds gränssnitt:
+
+1. **Applikation.** Skapa en applikation från GitHub-repot `wheresmarco/jobbie` och välj grenen som ska driftsättas. Region: EU (Frankfurt eller Amsterdam) ligger närmast Sverige.
+2. **Resurser.** Koppla en **Laravel MySQL**-databas (MySQL 8 krävs för FULLTEXT) och en **Laravel Valkey**-cache (Redis-kompatibel, fungerar med Horizon). Cloud sätter då `DB_*` och `REDIS_*` själv.
+3. **Byggkommandon.**
+
+    ```sh
+    composer install --no-dev --optimize-autoloader
+    npm ci
+    npm run build
+    ```
+
+4. **Driftsättningskommandon.**
+
+    ```sh
+    php artisan migrate --force
+    php artisan horizon:terminate
+    ```
+
+5. **Beräkning.** Webbklustret räcker med minsta storleken. Slå på **Scheduler** för miljön. Lägg till en bakgrundsprocess med kommandot `php artisan horizon` och **en** instans, helst på ett eget workerkluster med minst 1 GB minne och några GB disk, eftersom JobStreams ögonblicksbild (cirka 300 MB) laddas ner till disk och läses strömmande.
+6. **Miljövariabler** (utöver dem Cloud sätter):
+
+    ```dotenv
+    APP_NAME="Teamtailor-radar"
+    APP_DEBUG=false
+    APP_LOCALE=sv
+    QUEUE_CONNECTION=redis
+    CACHE_STORE=redis
+    SESSION_DRIVER=redis
+    RADAR_LONG_QUEUE_CONNECTION=redis-long
+    RADAR_BASIC_AUTH_USER=välj-ett-namn
+    RADAR_BASIC_AUTH_PASSWORD=välj-ett-långt-lösenord
+    RADAR_USER_AGENT="TeamtailorRadar/1.0 (+mailto:din-adress)"
+    ```
+
+    Utan `RADAR_BASIC_AUTH_*` svarar appen 403 i produktion. Horizon (`/horizon`) ligger bakom samma inloggning.
+7. **Första körningen.** Kör `php artisan radar:discover --verify` från Clouds kommandofönster. Det köar JobStream, prefixprobning och Common Crawl i en kedja som avslutas med verifiering. Följ förloppet i Horizon. Kör sedan `php artisan radar:scrape --no-wait`. Därefter sköter schemat resten.
+
+Två köer används: `default` på anslutningen `redis` för skrapning och verifiering (tidsgräns 900 s, upp till `HORIZON_MAX_PROCESSES` processer, standard 10), och `discovery` på `redis-long` för JobStream och kandidatinsamling (en process, tidsgräns en timme). `retry_after` är satt längre än respektive tidsgräns, så att pågående jobb inte startas om. Filer i `storage` överlever inte en ny driftsättning. Det gäller bara den hämtade Public Suffix List, som då faller tillbaka på kopian i repot tills `radar:update-psl` körs igen.
+
 ## Konfiguration
 
 Alla inställningar finns i `config/radar.php` och läses från `.env` (se `.env.example`). DNS går som standard via DNS over HTTPS (`RADAR_DNS_DRIVER=doh`). Med `RADAR_DNS_DRIVER=system` används operativsystemets resolver i stället, vilket fungerar där DoH är blockerat men saknar tidsgräns.
