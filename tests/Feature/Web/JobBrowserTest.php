@@ -172,7 +172,14 @@ it('groups postings without company under the career site name', function (): vo
 });
 
 it('renders the page', function (): void {
-    $this->get('/')->assertOk()->assertSeeLivewire(JobBrowser::class)->assertSee('Teamtailor-radar');
+    $this->get('/')->assertOk()->assertSeeLivewire(JobBrowser::class)->assertSee('Jobbie');
+});
+
+it('reuses cached search results without crashing on a second request', function (): void {
+    cache()->flush();
+
+    $this->get('/')->assertOk();
+    $this->get('/')->assertOk();
 });
 
 it('opens only the first group until the viewer toggles groups', function (): void {

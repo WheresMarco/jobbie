@@ -1,4 +1,4 @@
-# Teamtailor-radar
+# Jobbie
 
 Laravel-applikation som hittar företag som annonserar via Teamtailor, även när karriärsidan ligger på egen domän (till exempel `career.foretag.se`), samlar alla öppna annonser och visar dem i ett filtrerbart webbgränssnitt. Fokus ligger på svenska företag.
 
@@ -134,7 +134,7 @@ Förberedelser, en gång:
     * hemligheten `RADAR_BASIC_AUTH_PASSWORD`,
     * variabeln `RADAR_BASIC_AUTH_USER`,
     * gärna variabeln `RADAR_USER_AGENT` med en kontaktadress,
-    * valfritt hemligheten `RADAR_SEARCH_API_KEY` och variabeln `CLOUD_APP_NAME` (standard `teamtailor-radar`).
+    * valfritt hemligheten `RADAR_SEARCH_API_KEY` och variabeln `CLOUD_APP_NAME` (standard `jobbie`).
 4. Arbetsflödet måste ligga på standardgrenen för att kunna startas manuellt.
 
 Kör sedan *Actions → Laravel Cloud → Run workflow*. Första gången bör *first_run* kryssas i, så köas upptäckt och skrapning direkt efter driftsättningen. Adressen till appen står i körningens sammanfattning.
@@ -166,7 +166,7 @@ Samma miljö kan också skapas för hand i Clouds gränssnitt:
 6. **Miljövariabler** (utöver dem Cloud sätter):
 
     ```dotenv
-    APP_NAME="Teamtailor-radar"
+    APP_NAME="Jobbie"
     APP_DEBUG=false
     APP_LOCALE=sv
     QUEUE_CONNECTION=redis
@@ -175,7 +175,7 @@ Samma miljö kan också skapas för hand i Clouds gränssnitt:
     RADAR_LONG_QUEUE_CONNECTION=redis-long
     RADAR_BASIC_AUTH_USER=välj-ett-namn
     RADAR_BASIC_AUTH_PASSWORD=välj-ett-långt-lösenord
-    RADAR_USER_AGENT="TeamtailorRadar/1.0 (+mailto:din-adress)"
+    RADAR_USER_AGENT="Jobbie/1.0 (+mailto:din-adress)"
     ```
 
     Utan `RADAR_BASIC_AUTH_*` svarar appen 403 i produktion. Horizon (`/horizon`) ligger bakom samma inloggning.

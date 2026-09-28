@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 return [
-    'app_name' => 'Teamtailor-radar',
+    'app_name' => 'Jobbie',
     'nav' => [
         'jobs' => 'Jobb',
         'stats' => 'Statistik',

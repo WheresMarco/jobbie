@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "wheresmarco/jobbie",
     "type": "project",
-    "description": "Teamtailor-radar: finds Swedish companies hiring through Teamtailor and collects their job postings.",
+    "description": "Jobbie: finds Swedish companies hiring through Teamtailor and collects their job postings.",
     "keywords": [
         "teamtailor",
         "jobs",

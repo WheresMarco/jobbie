@@ -46,8 +46,27 @@ final readonly class JobSearch
     {
         $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit;
 
-        /** @var array{total: int, facets: Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
+        /** @var array{total: int, facets: array<string, mixed>|Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
         $summary = Cache::remember($key, self::CACHE_SECONDS, fn (): array => $this->summarize($filters, $grouped, $limit));
+
+        if (! is_array($summary['facets']) && ! $summary['facets'] instanceof Facets) {
+            Cache::forget($key);
+            $summary = $this->summarize($filters, $grouped, $limit);
+        }
+
+        $facets = $summary['facets'];
+        if (! $facets instanceof Facets) {
+            $facets = new Facets(
+                countries: $facets['countries'] ?? [],
+                cities: $facets['cities'] ?? [],
+                remote: $facets['remote'] ?? [],
+                departments: $facets['departments'] ?? [],
+                published: $facets['published'] ?? [],
+                new: $facets['new'] ?? 0,
+                kinds: $facets['kinds'] ?? [],
+                notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
+            );
+        }
 
         $open = $openEmployers ?? array_slice(array_column($summary['groups'], 'employer'), 0, 1);
         $openGroups = array_filter($summary['groups'], static fn (array $g): bool => in_array($g['employer'], $open, true));
@@ -73,7 +92,7 @@ final readonly class JobSearch
 
         return new SearchResult(
             total: $summary['total'],
-            facets: $summary['facets'],
+            facets: $facets,
             groups: $groups,
             postings: $grouped ? [] : array_values(array_filter(array_map(static fn (int $id): ?JobPosting => $postings->get($id), $summary['ids']))),
             hasMore: $summary['hasMore'],
@@ -81,7 +100,7 @@ final readonly class JobSearch
     }
 
     /**
-     * @return array{total: int, facets: Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
+     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
     private function summarize(JobFilters $filters, bool $grouped, int $limit): array
     {
@@ -262,16 +281,16 @@ final readonly class JobSearch
 
         return [
             'total' => $total,
-            'facets' => new Facets(
-                countries: self::top($countries),
-                cities: self::top($cities),
-                remote: array_merge(array_fill_keys(JobFilters::REMOTE_OPTIONS, 0), $remotes),
-                departments: self::top($departments),
-                published: $publishedCounts,
-                new: $newCount,
-                kinds: $kinds,
-                notInPlatsbanken: $missingCount,
-            ),
+            'facets' => [
+                'countries' => self::top($countries),
+                'cities' => self::top($cities),
+                'remote' => array_merge(array_fill_keys(JobFilters::REMOTE_OPTIONS, 0), $remotes),
+                'departments' => self::top($departments),
+                'published' => $publishedCounts,
+                'new' => $newCount,
+                'kinds' => $kinds,
+                'notInPlatsbanken' => $missingCount,
+            ],
             'groups' => $groups,
             'ids' => $ids,
             'hasMore' => $hasMore,

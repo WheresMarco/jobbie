@@ -11,7 +11,7 @@ declare(strict_types=1);
 | Environment:
 |   LARAVEL_CLOUD_TOKEN         API token (read by the CLI itself)
 |   CLOUD_BIN                   path to the cloud CLI
-|   CLOUD_APP_NAME              application name (default teamtailor-radar)
+|   CLOUD_APP_NAME              application name (default jobbie)
 |   CLOUD_REPOSITORY            owner/repo
 |   CLOUD_BRANCH                branch to deploy
 |   CLOUD_REGION                region for new resources
@@ -28,7 +28,7 @@ const WORKER_NAME = 'horizon';
 const HORIZON_COMMAND = 'php artisan horizon';
 
 $bin = getenv('CLOUD_BIN') ?: 'cloud';
-$appName = getenv('CLOUD_APP_NAME') ?: 'teamtailor-radar';
+$appName = getenv('CLOUD_APP_NAME') ?: 'jobbie';
 $repository = required('CLOUD_REPOSITORY');
 $branch = getenv('CLOUD_BRANCH') ?: 'main';
 $region = getenv('CLOUD_REGION') ?: 'eu-central-1';
@@ -81,7 +81,7 @@ if (empty($environment['cacheId'])) {
 
 // 4. Environment variables. "set" updates existing keys instead of duplicating them.
 $variables = array_filter([
-    'APP_NAME' => 'Teamtailor-radar',
+    'APP_NAME' => 'jobbie',
     'APP_DEBUG' => 'false',
     'APP_LOCALE' => 'sv',
     'QUEUE_CONNECTION' => 'redis',

@@ -31,7 +31,7 @@ final class BasicAuth
             return $next($request);
         }
 
-        return response('', 401, ['WWW-Authenticate' => 'Basic realm="Teamtailor-radar", charset="UTF-8"']);
+        return response('', 401, ['WWW-Authenticate' => 'Basic realm="Jobbie", charset="UTF-8"']);
     }
 
     public static function configured(): bool
