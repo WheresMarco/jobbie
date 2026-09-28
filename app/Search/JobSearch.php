@@ -49,28 +49,29 @@ final readonly class JobSearch
     {
         $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit.':'.($marks?->cacheKey() ?? '-');
 
-        /** @var array{total: int, facets: array<string, mixed>|Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
-        $summary = Cache::remember($key, self::CACHE_SECONDS, fn (): array => $this->summarize($filters, $grouped, $limit, $marks));
-
-        if (! is_array($summary['facets']) && ! $summary['facets'] instanceof Facets) {
-            Cache::forget($key);
+        // Anything cached in an older shape (such as a Facets object) is
+        // computed again rather than trusted.
+        $cached = Cache::get($key);
+        if (is_array($cached) && is_array($cached['facets'] ?? null)) {
+            /** @var array{total: int, facets: array<string, mixed>, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
+            $summary = $cached;
+        } else {
             $summary = $this->summarize($filters, $grouped, $limit, $marks);
+            Cache::put($key, $summary, self::CACHE_SECONDS);
         }
 
         $facets = $summary['facets'];
-        if (! $facets instanceof Facets) {
-            $facets = new Facets(
-                countries: $facets['countries'] ?? [],
-                cities: $facets['cities'] ?? [],
-                remote: $facets['remote'] ?? [],
-                departments: $facets['departments'] ?? [],
-                published: $facets['published'] ?? [],
-                new: $facets['new'] ?? 0,
-                kinds: $facets['kinds'] ?? [],
-                notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
-                unseen: $facets['unseen'] ?? 0,
-            );
-        }
+        $facets = new Facets(
+            countries: $facets['countries'] ?? [],
+            cities: $facets['cities'] ?? [],
+            remote: $facets['remote'] ?? [],
+            departments: $facets['departments'] ?? [],
+            published: $facets['published'] ?? [],
+            new: $facets['new'] ?? 0,
+            kinds: $facets['kinds'] ?? [],
+            notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
+            unseen: $facets['unseen'] ?? 0,
+        );
 
         $open = $openEmployers ?? array_slice(array_column($summary['groups'], 'employer'), 0, 1);
         $openGroups = array_filter($summary['groups'], static fn (array $g): bool => in_array($g['employer'], $open, true));
@@ -130,7 +131,7 @@ final readonly class JobSearch
         $kind = $filters->kind?->value;
         $notInPlatsbanken = $filters->notInPlatsbanken;
         $unseenOnly = $filters->unseenOnly && $marks !== null;
-        $statuses = $marks?->statuses ?? [];
+        $statuses = $marks->statuses ?? [];
         $seenUntil = $marks?->seenUntil;
         $rejected = MarkStatus::Rejected->value;
 
