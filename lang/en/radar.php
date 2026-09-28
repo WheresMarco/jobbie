@@ -111,6 +111,15 @@ return [
     'match_platsbanken' => [
         'done' => ':matched of :active active postings (:share %) are also in Platsbanken: :apply_url by apply link, :org_title by organisation number and title.',
     ],
+    'user' => [
+        'invalid_email' => '":email" is not a valid email address.',
+        'password' => 'Password',
+        'password_again' => 'Password again',
+        'too_short' => 'The password needs at least :min characters.',
+        'mismatch' => 'The passwords do not match.',
+        'created' => 'Account :email created.',
+        'updated' => 'New password for :email saved.',
+    ],
     'smoke' => [
         'columns' => [
             'host' => 'Host',

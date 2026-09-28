@@ -30,6 +30,7 @@ final readonly class JobFilters
         public bool $newOnly = false,
         public ?BoardKind $kind = null,
         public bool $notInPlatsbanken = false,
+        public bool $unseenOnly = false,
     ) {
     }
 
@@ -48,6 +49,7 @@ final readonly class JobFilters
         bool $newOnly = false,
         string $kind = '',
         bool $notInPlatsbanken = false,
+        bool $unseenOnly = false,
     ): self {
         $country = strtoupper(trim($country));
 
@@ -61,6 +63,7 @@ final readonly class JobFilters
             newOnly: $newOnly,
             kind: BoardKind::tryFrom($kind),
             notInPlatsbanken: $notInPlatsbanken,
+            unseenOnly: $unseenOnly,
         );
     }
 
@@ -81,7 +84,7 @@ final readonly class JobFilters
     {
         return md5(serialize([
             $this->terms(), $this->country, $this->city, $this->remote, $this->department,
-            $this->publishedDays, $this->newOnly, $this->kind?->value, $this->notInPlatsbanken,
+            $this->publishedDays, $this->newOnly, $this->kind?->value, $this->notInPlatsbanken, $this->unseenOnly,
         ]));
     }
 

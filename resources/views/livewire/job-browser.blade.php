@@ -25,6 +25,20 @@
                 @endunless
             </div>
 
+            @if ($userMarks)
+                <div class="space-y-1.5">
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" wire:model.live="unseen" class="rounded border-stone-300 text-accent-600">
+                        <span class="flex-1 font-medium">{{ __('ui.filters.unseen') }}</span>
+                        <span class="text-xs tabular-nums text-stone-500" data-facet="unseen">{{ $facets->unseen }}</span>
+                    </label>
+                    @if ($facets->unseen > 0 || $unseen)
+                        <button type="button" wire:click="markAllSeen" wire:confirm="{{ __('ui.marks.mark_all_seen_confirm') }}"
+                                class="text-sm text-accent-700 hover:underline">{{ __('ui.marks.mark_all_seen') }}</button>
+                    @endif
+                </div>
+            @endif
+
             <label class="block">
                 <span class="mb-1 block text-sm font-medium">{{ __('ui.filters.country') }}</span>
                 <select wire:model.live="country" class="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm">
@@ -164,7 +178,7 @@
                         @if ($group->open)
                             <ul class="divide-y divide-stone-100 border-t border-stone-100 px-4">
                                 @foreach ($group->postings as $posting)
-                                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => false])
+                                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => false, 'userMarks' => $userMarks])
                                 @endforeach
                             </ul>
                             <div class="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-4 py-2 text-sm">
@@ -184,7 +198,7 @@
         @else
             <ul class="mt-4 divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white px-4">
                 @foreach ($postings as $posting)
-                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => true])
+                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => true, 'userMarks' => $userMarks])
                 @endforeach
             </ul>
         @endif

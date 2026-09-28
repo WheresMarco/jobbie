@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The radar is for personal use and has no user accounts. With
- * RADAR_BASIC_AUTH_USER and RADAR_BASIC_AUTH_PASSWORD set, every web
+ * An extra lock in front of the whole app, on top of the user accounts.
+ * With RADAR_BASIC_AUTH_USER and RADAR_BASIC_AUTH_PASSWORD set, every web
  * request needs those credentials. Without them the app is only served
  * outside production.
  */

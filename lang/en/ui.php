@@ -7,6 +7,49 @@ return [
     'nav' => [
         'jobs' => 'Jobs',
         'stats' => 'Statistics',
+        'unseen' => 'Unseen',
+        'mine' => 'My postings',
+        'logout' => 'Log out',
+    ],
+    'auth' => [
+        'title' => 'Log in',
+        'email' => 'Email',
+        'password' => 'Password',
+        'remember' => 'Remember me',
+        'submit' => 'Log in',
+        'failed' => 'Wrong email or password.',
+        'throttled' => 'Too many attempts. Try again in :seconds seconds.',
+        'email_required' => 'Enter your email address.',
+        'email_invalid' => 'Enter a valid email address.',
+        'password_required' => 'Enter your password.',
+    ],
+    'marks' => [
+        'label' => 'Mark',
+        'unseen' => 'Unseen',
+        'mark_seen' => 'Mark as seen',
+        'mark_all_seen' => 'Mark all as seen',
+        'mark_all_seen_confirm' => 'Mark every posting as seen, whatever the filters?',
+        'to_jobs' => 'To the postings',
+        'action' => [
+            'saved' => 'To do',
+            'applied' => 'Applied',
+            'rejected' => 'Reject',
+        ],
+        'status' => [
+            'saved' => 'To do',
+            'applied' => 'Applied',
+            'rejected' => 'Rejected',
+        ],
+        'tab' => [
+            'saved' => 'To do',
+            'applied' => 'Applied',
+            'rejected' => 'Rejected',
+        ],
+        'empty' => [
+            'saved' => 'Nothing to do. Mark postings with "To do" in the list.',
+            'applied' => 'No applications yet.',
+            'rejected' => 'No rejected postings.',
+        ],
     ],
     'jobs' => [
         'search_placeholder' => 'Search title, employer or text',
@@ -24,6 +67,7 @@ return [
         'show_more' => 'Show more',
         'in_platsbanken' => 'Also in Platsbanken',
         'new_badge' => 'New',
+        'closed_badge' => 'Closed',
     ],
     'filters' => [
         'title' => 'Filters',
@@ -39,6 +83,7 @@ return [
         'new' => 'Discovered in the last :days days',
         'not_in_platsbanken' => 'Only postings missing from Platsbanken',
         'kind' => 'Career site',
+        'unseen' => 'Unseen only',
     ],
     'remote' => [
         'fully' => 'Remote',

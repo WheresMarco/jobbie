@@ -18,6 +18,7 @@ docker compose up -d mysql redis
 composer install
 php artisan key:generate
 php artisan migrate
+php artisan radar:user din@adress.se
 ```
 
 Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`. Gränssnittet behöver byggda resurser (`npm install && npm run build`). Med `php artisan db:seed --class=DemoSeeder` fylls databasen med påhittade annonser att prova med.
@@ -40,6 +41,7 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 
 | Kommando | Vad det gör |
 | --- | --- |
+| `radar:user {e-post}` | Skapar ett konto, eller sätter nytt lösenord för ett befintligt. Lösenordet (minst 8 tecken) frågas efter. `--name=` sätter visningsnamnet |
 | `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
 | `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
@@ -100,13 +102,29 @@ Status på karriärsidan: `active` (har annonser), `empty` (flödet är tomt), `
 
 ## Webbgränssnitt
 
-`/` visar alla aktiva annonser, grupperade per arbetsgivare eller som platt lista. Gruppering sker på annonsens arbetsgivare och inte på karriärsidan, eftersom bemanningsföretag annonserar åt kunder. Filtren (fritext, land, ort, arbetsplats, avdelning, publiceringsdatum, nyupptäckta och typ av karriärsida) sparas i URL:en, och varje filter visar antal träffar givet de andra filtren. Antalen cachas en minut per filterkombination. `/stats` visar samma statistik som `radar:stats`.
+`/` visar alla aktiva annonser, grupperade per arbetsgivare eller som platt lista. Gruppering sker på annonsens arbetsgivare och inte på karriärsidan, eftersom bemanningsföretag annonserar åt kunder. Filtren (fritext, osedda, land, ort, arbetsplats, avdelning, publiceringsdatum, nyupptäckta och typ av karriärsida) sparas i URL:en, och varje filter visar antal träffar givet de andra filtren. Antalen cachas en minut per filterkombination. `/stats` visar samma statistik som `radar:stats`.
 
 Fritext söker i titel, arbetsgivare och beskrivning via MySQL FULLTEXT i boolean mode, med `+ord*` per ord. Det betyder att ett ord matchar i början av ord. "utvecklare" hittar därför inte "Backendutvecklare". Ord kortare än tre tecken söks med LIKE, eftersom de ligger under InnoDB:s minsta ordlängd.
 
 Sökningen (`App\Search\JobSearch`) matchar fritexten i SQL och läser sedan en smal rad per träff via ett täckande index. Totalen, alla facetter och grupperna räknas i ett enda svep i PHP, och bara de annonser som visas laddas i sin helhet. En grupps annonser laddas när gruppen fälls ut. Testet `composer test:mysql` seedar 50 000 annonser med `DemoSeeder` och kräver att typiska sidor svarar under 300 ms (bästa av tre körningar, med resultatcachen tömd före varje körning). Ett sökord som finns i nästan alla annonser är långsammare, eftersom InnoDB:s fulltextsökning då själv blir flaskhalsen.
 
-Gränssnittet är avsett för eget bruk. Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` kräver alla sidor, inklusive Livewire och Horizon, inloggning med HTTP Basic Auth. I produktion utan dessa värden svarar appen 403. Exponera den inte öppet på internet.
+## Konton och markeringar
+
+Alla sidor kräver inloggning med e-post och lösenord på `/login`. Det finns ingen registrering. Konton skapas med `php artisan radar:user`. Efter fem felaktiga försök spärras inloggningen för adressen en stund. Horizon (`/horizon`) kräver också inloggning, utom lokalt.
+
+Varje användare kan markera annonser:
+
+* **Att hantera** för annonser man vill arbeta vidare med.
+* **Ansökt** när ansökan är skickad.
+* **Neka** för annonser man inte är intresserad av. Nekade annonser visas inte längre i annonslistan.
+
+Klickar man på den aktiva markeringen igen tas den bort. `/mina` visar markerade annonser per status, senast ändrade först, även annonser som har stängts.
+
+En annons är **osedd** tills man markerar den, öppnar den, väljer *Markera som sedd* eller trycker *Markera alla som sedda*. Det sista flyttar bara en tidpunkt på kontot, så annonser som upptäcks efteråt blir osedda igen. Menyvalet *Osedda* visar antalet och öppnar listan filtrerad på osedda annonser.
+
+Markeringarna ligger i tabellen `job_posting_marks`, en rad per användare och annons som användaren har sett eller markerat. Sökresultatet cachas per användare och räknas om när användarens markeringar ändras.
+
+Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` satta krävs dessutom HTTP Basic Auth framför hela appen. I produktion utan dessa värden svarar appen 403. Exponera den inte öppet på internet.
 
 ## Överlapp mot Platsbanken
 

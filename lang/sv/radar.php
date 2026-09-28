@@ -111,6 +111,15 @@ return [
     'match_platsbanken' => [
         'done' => ':matched av :active aktiva annonser (:share %) finns även i Platsbanken: :apply_url via ansökningslänk, :org_title via organisationsnummer och titel.',
     ],
+    'user' => [
+        'invalid_email' => '”:email” är ingen giltig e-postadress.',
+        'password' => 'Lösenord',
+        'password_again' => 'Lösenord igen',
+        'too_short' => 'Lösenordet måste ha minst :min tecken.',
+        'mismatch' => 'Lösenorden stämmer inte överens.',
+        'created' => 'Kontot :email är skapat.',
+        'updated' => 'Nytt lösenord för :email är sparat.',
+    ],
     'smoke' => [
         'columns' => [
             'host' => 'Värd',

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Search;
 
+use App\Enums\MarkStatus;
 use App\Models\Board;
 use App\Models\JobPosting;
+use App\Tracking\UserMarks;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -41,17 +43,18 @@ final readonly class JobSearch
 
     /**
      * @param  list<string>|null  $openEmployers  Groups whose postings are loaded; null loads only the first group.
+     * @param  UserMarks|null  $marks  The viewer's marks: rejected postings are left out and unseen ones counted.
      */
-    public function search(JobFilters $filters, bool $grouped, int $limit, ?array $openEmployers = null): SearchResult
+    public function search(JobFilters $filters, bool $grouped, int $limit, ?array $openEmployers = null, ?UserMarks $marks = null): SearchResult
     {
-        $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit;
+        $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit.':'.($marks?->cacheKey() ?? '-');
 
         /** @var array{total: int, facets: array<string, mixed>|Facets, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
-        $summary = Cache::remember($key, self::CACHE_SECONDS, fn (): array => $this->summarize($filters, $grouped, $limit));
+        $summary = Cache::remember($key, self::CACHE_SECONDS, fn (): array => $this->summarize($filters, $grouped, $limit, $marks));
 
         if (! is_array($summary['facets']) && ! $summary['facets'] instanceof Facets) {
             Cache::forget($key);
-            $summary = $this->summarize($filters, $grouped, $limit);
+            $summary = $this->summarize($filters, $grouped, $limit, $marks);
         }
 
         $facets = $summary['facets'];
@@ -65,6 +68,7 @@ final readonly class JobSearch
                 new: $facets['new'] ?? 0,
                 kinds: $facets['kinds'] ?? [],
                 notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
+                unseen: $facets['unseen'] ?? 0,
             );
         }
 
@@ -100,9 +104,9 @@ final readonly class JobSearch
     }
 
     /**
-     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
+     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
-    private function summarize(JobFilters $filters, bool $grouped, int $limit): array
+    private function summarize(JobFilters $filters, bool $grouped, int $limit, ?UserMarks $marks): array
     {
         $now = Carbon::now()->utc();
         $newSince = $now->copy()->subDays($this->newJobDays)->format('Y-m-d H:i:s');
@@ -125,12 +129,16 @@ final readonly class JobSearch
         $newOnly = $filters->newOnly;
         $kind = $filters->kind?->value;
         $notInPlatsbanken = $filters->notInPlatsbanken;
+        $unseenOnly = $filters->unseenOnly && $marks !== null;
+        $statuses = $marks?->statuses ?? [];
+        $seenUntil = $marks?->seenUntil;
+        $rejected = MarkStatus::Rejected->value;
 
         $rows = self::fetchNumeric($this->rows($filters));
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
 
         $countries = $cities = $remotes = $departments = $published = $kinds = [];
-        $newCount = $missingCount = $total = 0;
+        $newCount = $missingCount = $unseenCount = $total = 0;
         // Per employer: postings, fully remote postings and row indexes.
         $employerTotal = $employerRemote = $employerRows = [];
         // Row index => posted_at, for the flat list.
@@ -140,6 +148,13 @@ final readonly class JobSearch
         $remoteOptions = self::REMOTE_OPTIONS;
 
         foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt, $inPlatsbanken]) {
+            // Same rule as UserMarks::isUnseen(), inlined for speed.
+            $marked = array_key_exists($id, $statuses);
+            if ($marked && $statuses[$id] === $rejected) {
+                continue;
+            }
+            $isUnseen = $marks !== null && ! $marked && ($seenUntil === null || $firstSeenAt > $seenUntil);
+
             $rowKind = $boardKind[$boardId] ?? '';
             $rowCountries = $rowCountriesById[$id] ?? [];
             $rowCities = $rowCitiesById[$id] ?? [];
@@ -183,6 +198,10 @@ final readonly class JobSearch
                 $failed = 'platsbanken';
                 $failures++;
             }
+            if ($unseenOnly && ! $isUnseen) {
+                $failed = 'unseen';
+                $failures++;
+            }
 
             if ($failures > 1) {
                 continue;
@@ -220,6 +239,9 @@ final readonly class JobSearch
             }
             if (($failed === null || $failed === 'platsbanken') && ! $inPlatsbanken) {
                 $missingCount++;
+            }
+            if (($failed === null || $failed === 'unseen') && $isUnseen) {
+                $unseenCount++;
             }
 
             if ($failed !== null) {
@@ -290,6 +312,7 @@ final readonly class JobSearch
                 'new' => $newCount,
                 'kinds' => $kinds,
                 'notInPlatsbanken' => $missingCount,
+                'unseen' => $unseenCount,
             ],
             'groups' => $groups,
             'ids' => $ids,

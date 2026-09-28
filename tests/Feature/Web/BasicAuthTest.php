@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function (): void {
+    $this->actingAs(User::factory()->create());
+});
 
 it('is open without credentials outside production', function (): void {
     $this->get('/')->assertOk();

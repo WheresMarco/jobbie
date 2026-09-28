@@ -7,6 +7,49 @@ return [
     'nav' => [
         'jobs' => 'Jobb',
         'stats' => 'Statistik',
+        'unseen' => 'Osedda',
+        'mine' => 'Mina annonser',
+        'logout' => 'Logga ut',
+    ],
+    'auth' => [
+        'title' => 'Logga in',
+        'email' => 'E-post',
+        'password' => 'Lösenord',
+        'remember' => 'Kom ihåg mig',
+        'submit' => 'Logga in',
+        'failed' => 'Fel e-post eller lösenord.',
+        'throttled' => 'För många försök. Försök igen om :seconds sekunder.',
+        'email_required' => 'Ange din e-postadress.',
+        'email_invalid' => 'Ange en giltig e-postadress.',
+        'password_required' => 'Ange ditt lösenord.',
+    ],
+    'marks' => [
+        'label' => 'Markering',
+        'unseen' => 'Osedd',
+        'mark_seen' => 'Markera som sedd',
+        'mark_all_seen' => 'Markera alla som sedda',
+        'mark_all_seen_confirm' => 'Markera alla annonser som sedda, oavsett filter?',
+        'to_jobs' => 'Till annonserna',
+        'action' => [
+            'saved' => 'Att hantera',
+            'applied' => 'Ansökt',
+            'rejected' => 'Neka',
+        ],
+        'status' => [
+            'saved' => 'Att hantera',
+            'applied' => 'Ansökt',
+            'rejected' => 'Nekad',
+        ],
+        'tab' => [
+            'saved' => 'Att hantera',
+            'applied' => 'Ansökta',
+            'rejected' => 'Nekade',
+        ],
+        'empty' => [
+            'saved' => 'Inga annonser att hantera. Markera annonser med ”Att hantera” i listan.',
+            'applied' => 'Inga ansökta annonser ännu.',
+            'rejected' => 'Inga nekade annonser.',
+        ],
     ],
     'jobs' => [
         'search_placeholder' => 'Sök titel, arbetsgivare eller text',
@@ -24,6 +67,7 @@ return [
         'show_more' => 'Visa fler',
         'in_platsbanken' => 'Finns även i Platsbanken',
         'new_badge' => 'Ny',
+        'closed_badge' => 'Stängd',
     ],
     'filters' => [
         'title' => 'Filter',
@@ -39,6 +83,7 @@ return [
         'new' => 'Upptäckt senaste :days dagarna',
         'not_in_platsbanken' => 'Bara annonser som saknas i Platsbanken',
         'kind' => 'Karriärsida',
+        'unseen' => 'Bara osedda',
     ],
     'remote' => [
         'fully' => 'Distans',
