@@ -15,7 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Behind a load balancer (Laravel Cloud, Docker proxies): trust its
+        // Behind a load balancer or reverse proxy: trust its
         // X-Forwarded-* headers so URLs and redirects use https.
         $middleware->trustProxies(at: '*');
 
