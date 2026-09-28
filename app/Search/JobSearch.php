@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Search;
 
-use App\Enums\MarkStatus;
 use App\Models\Board;
 use App\Models\JobPosting;
 use App\Tracking\UserMarks;
@@ -43,7 +42,7 @@ final readonly class JobSearch
 
     /**
      * @param  list<string>|null  $openEmployers  Groups whose postings are loaded; null loads only the first group.
-     * @param  UserMarks|null  $marks  The viewer's marks: rejected postings are left out and unseen ones counted.
+     * @param  UserMarks|null  $marks  The viewer's marks: hidden postings and employers are left out and unseen ones counted.
      */
     public function search(JobFilters $filters, bool $grouped, int $limit, ?array $openEmployers = null, ?UserMarks $marks = null): SearchResult
     {
@@ -142,9 +141,11 @@ final readonly class JobSearch
         $kind = $filters->kind?->value;
         $notInPlatsbanken = $filters->notInPlatsbanken;
         $unseenOnly = $filters->unseenOnly && $marks !== null;
+        $tracking = $marks !== null;
         $statuses = $marks->statuses ?? [];
+        $hiddenIds = $marks->hiddenIds ?? [];
+        $hiddenEmployers = $marks->hiddenEmployers ?? [];
         $seenUntil = $marks?->seenUntil;
-        $rejected = MarkStatus::Rejected->value;
 
         $rows = self::fetchNumeric($this->rows($filters));
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
@@ -160,12 +161,12 @@ final readonly class JobSearch
         $remoteOptions = self::REMOTE_OPTIONS;
 
         foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt, $inPlatsbanken]) {
-            // Same rule as UserMarks::isUnseen(), inlined for speed.
-            $marked = array_key_exists($id, $statuses);
-            if ($marked && $statuses[$id] === $rejected) {
+            // Hidden postings and employers count nowhere.
+            if (isset($hiddenIds[$id]) || ($hiddenEmployers !== [] && isset($hiddenEmployers[$company ?? ($boardName[$boardId] ?? '')]))) {
                 continue;
             }
-            $isUnseen = $marks !== null && ! $marked && ($seenUntil === null || $firstSeenAt > $seenUntil);
+            // Same rule as UserMarks::isUnseen(), inlined for speed.
+            $isUnseen = $tracking && ! array_key_exists($id, $statuses) && ($seenUntil === null || $firstSeenAt > $seenUntil);
 
             $rowKind = $boardKind[$boardId] ?? '';
             $rowCountries = $rowCountriesById[$id] ?? [];

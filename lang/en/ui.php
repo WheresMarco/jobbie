@@ -43,25 +43,33 @@ return [
         'mark_all_seen' => 'Mark all as seen',
         'mark_all_seen_confirm' => 'Mark every posting as seen, whatever the filters?',
         'to_jobs' => 'To the postings',
+        'hide_employer' => 'Hide the company',
+        'hide_employer_confirm' => 'Hide every posting from :employer, including future ones? You can show them again under My postings.',
+        'hidden_employers' => 'Hidden companies (:count)',
+        'show_again' => 'Show again',
         'action' => [
             'saved' => 'To do',
             'applied' => 'Applied',
             'rejected' => 'Reject',
+            'not_relevant' => 'Not relevant',
         ],
         'status' => [
             'saved' => 'To do',
             'applied' => 'Applied',
             'rejected' => 'Rejected',
+            'not_relevant' => 'Not relevant',
         ],
         'tab' => [
             'saved' => 'To do',
             'applied' => 'Applied',
             'rejected' => 'Rejected',
+            'not_relevant' => 'Not relevant',
         ],
         'empty' => [
             'saved' => 'Nothing to do. Mark postings with "To do" in the list.',
             'applied' => 'No applications yet.',
             'rejected' => 'No rejected postings.',
+            'not_relevant' => 'No postings are marked as not relevant.',
         ],
     ],
     'jobs' => [

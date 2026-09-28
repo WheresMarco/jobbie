@@ -164,9 +164,10 @@
             <div class="mt-4 space-y-3">
                 @foreach ($groups as $group)
                     <section class="rounded-xl border border-stone-200 bg-white" wire:key="group-{{ md5($group->employer) }}">
+                        <div class="flex items-center">
                         <button type="button" aria-expanded="{{ $group->open ? 'true' : 'false' }}"
                                 wire:click="toggleGroup(@js($group->employer), @js($openNow))"
-                                class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left">
+                                class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left">
                             <span @class(['text-stone-400 transition-transform', 'rotate-90' => $group->open]) aria-hidden="true">›</span>
                             <span class="font-semibold">{{ \App\Search\Highlighter::highlight($group->employer, $terms) }}</span>
                             <span class="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium tabular-nums">{{ $group->total }}</span>
@@ -175,6 +176,13 @@
                             @endif
                             <span class="min-w-0 flex-1 truncate text-sm text-stone-500">{{ implode(', ', array_slice($group->cities, 0, 5)) }}</span>
                         </button>
+                        @if ($userMarks && $group->employer !== '')
+                            <button type="button" wire:click="hideEmployer(@js($group->employer))"
+                                    wire:confirm="{{ __('ui.marks.hide_employer_confirm', ['employer' => $group->employer]) }}"
+                                    class="mr-3 shrink-0 rounded-md border border-stone-300 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
+                                    data-hide-employer>{{ __('ui.marks.action.not_relevant') }}</button>
+                        @endif
+                        </div>
                         @if ($group->open)
                             <ul class="divide-y divide-stone-100 border-t border-stone-100 px-4">
                                 @foreach ($group->postings as $posting)

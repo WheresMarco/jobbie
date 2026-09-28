@@ -68,12 +68,17 @@
                         @class([
                             'rounded-md border px-2 py-1 font-medium',
                             'border-stone-300 bg-white text-stone-700 hover:bg-stone-100' => $status !== $option,
-                            'border-accent-600 bg-accent-600 text-white' => $status === $option && $option !== \App\Enums\MarkStatus::Rejected,
-                            'border-stone-700 bg-stone-700 text-white' => $status === $option && $option === \App\Enums\MarkStatus::Rejected,
+                            'border-accent-600 bg-accent-600 text-white' => $status === $option && ! $option->hides(),
+                            'border-stone-700 bg-stone-700 text-white' => $status === $option && $option->hides(),
                         ])>{{ __($status === $option ? "ui.marks.status.{$option->value}" : "ui.marks.action.{$option->value}") }}</button>
             @endforeach
             @if ($isUnseen)
                 <button type="button" wire:click="markSeen({{ $posting->id }})" class="px-2 py-1 text-stone-500 hover:text-stone-900 hover:underline">{{ __('ui.marks.mark_seen') }}</button>
+            @endif
+            @if (($showEmployer ?? false) && $posting->employerName() !== '' && ! $userMarks->isEmployerHidden($posting->employerName()))
+                <button type="button" wire:click="hideEmployer(@js($posting->employerName()))"
+                        wire:confirm="{{ __('ui.marks.hide_employer_confirm', ['employer' => $posting->employerName()]) }}"
+                        class="px-2 py-1 text-stone-500 hover:text-stone-900 hover:underline">{{ __('ui.marks.hide_employer') }}</button>
             @endif
         </div>
     @endif

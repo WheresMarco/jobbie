@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tracking;
 
 use App\Enums\MarkStatus;
+use App\Models\HiddenEmployer;
 use App\Models\JobPosting;
 use App\Models\JobPostingMark;
 use App\Models\User;
@@ -34,7 +35,45 @@ final class PostingTracker
             statuses: $statuses,
             seenUntil: $user->postings_seen_until?->utc()->format('Y-m-d H:i:s'),
             version: $user->marks_version,
+            hiddenEmployers: array_fill_keys($this->hiddenEmployers($user), true),
         );
+    }
+
+    /**
+     * Employers the user has marked as not relevant, by name.
+     *
+     * @return list<string>
+     */
+    public function hiddenEmployers(User $user): array
+    {
+        /** @var list<string> $names */
+        $names = DB::table('hidden_employers')
+            ->where('user_id', $user->id)
+            ->orderBy('employer')
+            ->pluck('employer')
+            ->all();
+
+        return $names;
+    }
+
+    /**
+     * Hide every posting from an employer, including later ones.
+     */
+    public function hideEmployer(User $user, string $employer): void
+    {
+        $employer = trim($employer);
+        if ($employer === '' || mb_strlen($employer) > 191) {
+            return;
+        }
+
+        HiddenEmployer::query()->firstOrCreate(['user_id' => $user->id, 'employer' => $employer]);
+        $user->increment('marks_version');
+    }
+
+    public function showEmployer(User $user, string $employer): void
+    {
+        HiddenEmployer::query()->where('user_id', $user->id)->where('employer', $employer)->delete();
+        $user->increment('marks_version');
     }
 
     /**
@@ -88,19 +127,25 @@ final class PostingTracker
     public function unseenCount(User $user): int
     {
         $since = $user->postings_seen_until;
+        $hidden = $this->hiddenEmployers($user);
+
+        // Postings from hidden employers do not count, whether seen or not.
+        $visible = static function (Builder $query) use ($since, $hidden): void {
+            $query->where('job_postings.active', true)
+                ->when($since, fn (Builder $q, Carbon $since) => $q->where('job_postings.first_seen_at', '>', $since))
+                ->when($hidden !== [], fn (Builder $q) => $q
+                    ->leftJoin('boards', 'boards.id', '=', 'job_postings.board_id')
+                    ->whereNotIn(DB::raw('coalesce(job_postings.company, boards.name, boards.canonical_host)'), $hidden));
+        };
 
         // Two counts instead of an anti-join over every posting: this runs
         // on each page load, and a user has few marks.
-        $recent = DB::table('job_postings')
-            ->where('active', true)
-            ->when($since, fn (Builder $query, Carbon $since) => $query->where('first_seen_at', '>', $since))
-            ->count();
+        $recent = DB::table('job_postings')->tap($visible)->count();
 
         $marked = DB::table('job_posting_marks')
             ->join('job_postings', 'job_postings.id', '=', 'job_posting_marks.job_posting_id')
             ->where('job_posting_marks.user_id', $user->id)
-            ->where('job_postings.active', true)
-            ->when($since, fn (Builder $query, Carbon $since) => $query->where('job_postings.first_seen_at', '>', $since))
+            ->tap($visible)
             ->count();
 
         return $recent - $marked;

@@ -29,6 +29,21 @@ trait MarksPostings
         $this->dispatch(UnseenCounter::MARKS_CHANGED);
     }
 
+    /**
+     * Mark an employer as not relevant: all its postings are hidden.
+     */
+    public function hideEmployer(string $employer): void
+    {
+        app(PostingTracker::class)->hideEmployer($this->currentUser(), $employer);
+        $this->dispatch(UnseenCounter::MARKS_CHANGED);
+    }
+
+    public function showEmployer(string $employer): void
+    {
+        app(PostingTracker::class)->showEmployer($this->currentUser(), $employer);
+        $this->dispatch(UnseenCounter::MARKS_CHANGED);
+    }
+
     protected function currentUser(): User
     {
         $user = auth()->user();

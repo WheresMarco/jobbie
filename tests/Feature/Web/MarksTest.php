@@ -141,7 +141,7 @@ it('lists marked postings per status on the my postings page, closed ones includ
     $component = Livewire::test(MyPostings::class)
         // Latest change first.
         ->assertViewHas('postings', fn (array $p): bool => array_column($p, 'title') === ['Stängd tjänst', 'Backendutvecklare'])
-        ->assertViewHas('counts', ['saved' => 2, 'applied' => 1, 'rejected' => 1])
+        ->assertViewHas('counts', ['saved' => 2, 'applied' => 1, 'rejected' => 1, 'not_relevant' => 0])
         ->assertSee('Stängd');
 
     $component->set('status', 'rejected')

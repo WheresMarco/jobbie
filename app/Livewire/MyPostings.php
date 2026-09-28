@@ -15,7 +15,8 @@ use Livewire\Component;
 
 /**
  * The user's marked postings on /mina, one tab per status. Closed postings
- * stay listed, unlike in the job list.
+ * stay listed, unlike in the job list. The not relevant tab also lists the
+ * hidden employers, so they can be shown again.
  */
 final class MyPostings extends Component
 {
@@ -65,6 +66,7 @@ final class MyPostings extends Component
             'postings' => $postings,
             'userMarks' => $tracker->marks($user),
             'hasMore' => $marks->count() > $this->limit,
+            'hiddenEmployers' => $current === MarkStatus::NotRelevant ? $tracker->hiddenEmployers($user) : [],
         ])->title(__('ui.nav.mine'));
     }
 }

@@ -119,13 +119,16 @@ Varje användare kan markera annonser:
 
 * **Att hantera** för annonser man vill arbeta vidare med.
 * **Ansökt** när ansökan är skickad.
-* **Neka** för annonser man inte är intresserad av. Nekade annonser visas inte längre i annonslistan.
+* **Neka** för annonser man har arbetat med men tackat nej till.
+* **Ej relevant** för annonser man inte är intresserad av alls.
 
-Klickar man på den aktiva markeringen igen tas den bort. `/mina` visar markerade annonser per status, senast ändrade först, även annonser som har stängts.
+Nekade och ej relevanta annonser visas inte i annonslistan. Klickar man på den aktiva markeringen igen tas den bort. `/mina` visar markerade annonser per status, senast ändrade först, även annonser som har stängts.
+
+Hela företag kan också markeras som ej relevanta, med knappen på företagsgruppen eller *Dölj företaget* i den platta listan. Då döljs alla företagets annonser, även de som upptäcks senare, och de räknas inte heller som osedda. Företaget känns igen på samma namn som listan grupperar på: annonsens arbetsgivare, annars karriärsidans namn. Ett bemanningsföretags kunder döljs därför var för sig. Dolda företag listas under fliken *Ej relevanta* på `/mina`, där de kan visas igen.
 
 En annons är **osedd** tills man markerar den, öppnar den, väljer *Markera som sedd* eller trycker *Markera alla som sedda*. Det sista flyttar bara en tidpunkt på kontot, så annonser som upptäcks efteråt blir osedda igen. Menyvalet *Osedda* visar antalet och öppnar listan filtrerad på osedda annonser.
 
-Markeringarna ligger i tabellen `job_posting_marks`, en rad per användare och annons som användaren har sett eller markerat. Sökresultatet cachas per användare och räknas om när användarens markeringar ändras.
+Markeringarna ligger i tabellen `job_posting_marks`, en rad per användare och annons som användaren har sett eller markerat, och dolda företag i `hidden_employers`. Sökresultatet cachas per användare och räknas om när användarens markeringar ändras.
 
 Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` satta krävs dessutom HTTP Basic Auth framför hela appen, till exempel medan en server testas innan den öppnas. Utan dem påverkar Basic Auth ingenting.
 

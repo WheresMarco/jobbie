@@ -14,6 +14,20 @@
 
     <span wire:loading class="ml-2 text-sm text-stone-400">{{ __('ui.jobs.loading') }}</span>
 
+    @if ($hiddenEmployers !== [])
+        <section class="mt-4 rounded-xl border border-stone-200 bg-white p-4" aria-labelledby="hidden-employers">
+            <h2 id="hidden-employers" class="text-sm font-semibold">{{ __('ui.marks.hidden_employers', ['count' => count($hiddenEmployers)]) }}</h2>
+            <ul class="mt-2 divide-y divide-stone-100">
+                @foreach ($hiddenEmployers as $employer)
+                    <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="hidden-{{ md5($employer) }}" data-hidden-employer>
+                        <span>{{ $employer }}</span>
+                        <button type="button" wire:click="showEmployer(@js($employer))" class="shrink-0 text-accent-700 hover:underline">{{ __('ui.marks.show_again') }}</button>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     @if ($postings === [])
         <div class="mt-6 rounded-xl border border-dashed border-stone-300 bg-white p-10 text-center">
             <p class="font-medium">{{ __("ui.marks.empty.{$current->value}") }}</p>
