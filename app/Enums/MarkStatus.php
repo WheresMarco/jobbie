@@ -14,6 +14,24 @@ enum MarkStatus: string
 
     case Applied = 'applied';
 
-    /** Not interested; hidden from the job list. */
+    /** Worked on and turned down; hidden from the job list. */
     case Rejected = 'rejected';
+
+    /** Not of interest at all; hidden from the job list. */
+    case NotRelevant = 'not_relevant';
+
+    /**
+     * Statuses that hide a posting from the job list.
+     *
+     * @return list<self>
+     */
+    public static function hiding(): array
+    {
+        return [self::Rejected, self::NotRelevant];
+    }
+
+    public function hides(): bool
+    {
+        return in_array($this, self::hiding(), true);
+    }
 }

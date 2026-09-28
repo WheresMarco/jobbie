@@ -43,25 +43,33 @@ return [
         'mark_all_seen' => 'Markera alla som sedda',
         'mark_all_seen_confirm' => 'Markera alla annonser som sedda, oavsett filter?',
         'to_jobs' => 'Till annonserna',
+        'hide_employer' => 'Dölj företaget',
+        'hide_employer_confirm' => 'Dölj alla annonser från :employer, även kommande? Du kan visa dem igen under Mina annonser.',
+        'hidden_employers' => 'Dolda företag (:count)',
+        'show_again' => 'Visa igen',
         'action' => [
             'saved' => 'Att hantera',
             'applied' => 'Ansökt',
             'rejected' => 'Neka',
+            'not_relevant' => 'Ej relevant',
         ],
         'status' => [
             'saved' => 'Att hantera',
             'applied' => 'Ansökt',
             'rejected' => 'Nekad',
+            'not_relevant' => 'Ej relevant',
         ],
         'tab' => [
             'saved' => 'Att hantera',
             'applied' => 'Ansökta',
             'rejected' => 'Nekade',
+            'not_relevant' => 'Ej relevanta',
         ],
         'empty' => [
             'saved' => 'Inga annonser att hantera. Markera annonser med ”Att hantera” i listan.',
             'applied' => 'Inga ansökta annonser ännu.',
             'rejected' => 'Inga nekade annonser.',
+            'not_relevant' => 'Inga annonser är markerade som ej relevanta.',
         ],
     ],
     'jobs' => [

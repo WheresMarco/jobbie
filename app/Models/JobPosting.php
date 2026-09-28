@@ -74,6 +74,17 @@ class JobPosting extends Model
     }
 
     /**
+     * The name the job list groups this posting under: its company, else
+     * the career site's name or host. Hidden employers are matched on it.
+     */
+    public function employerName(): string
+    {
+        $board = $this->getRelationValue('board');
+
+        return $this->company ?? ($board instanceof Board ? ($board->name ?? $board->canonical_host) : '');
+    }
+
+    /**
      * @return HasMany<JobPostingLocation, $this>
      */
     public function locations(): HasMany
