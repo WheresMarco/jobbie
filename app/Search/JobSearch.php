@@ -56,7 +56,18 @@ final readonly class JobSearch
             /** @var array{total: int, facets: array<string, mixed>, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool} $summary */
             $summary = $cached;
         } else {
-            $summary = $this->summarize($filters, $grouped, $limit, $marks);
+            // The scan builds large arrays of scalars without cycles. The
+            // cycle collector would walk them several times per search for
+            // nothing, which costs 20 to 30 ms with 50 000 postings.
+            $collecting = gc_enabled();
+            gc_disable();
+            try {
+                $summary = $this->summarize($filters, $grouped, $limit, $marks);
+            } finally {
+                if ($collecting) {
+                    gc_enable();
+                }
+            }
             Cache::put($key, $summary, self::CACHE_SECONDS);
         }
 

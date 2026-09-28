@@ -90,12 +90,15 @@ it('lists unseen postings until they are marked, opened or everything is marked 
         ->and(app(PostingTracker::class)->unseenCount($this->user->fresh()))->toBe(1);
 });
 
-it('counts unseen postings in the navigation', function (): void {
-    $this->get('/')->assertOk()->assertSeeInOrder(['Osedda', '3']);
+it('counts unseen postings in the navigation, loaded after the page', function (): void {
+    // The page only carries the placeholder, so counting never delays it.
+    $this->get('/')->assertOk()->assertSeeLivewire(UnseenCounter::class)->assertDontSee('data-unseen-count', false);
+
+    Livewire::withoutLazyLoading()->test(UnseenCounter::class)->assertSeeHtml('data-unseen-count>3<');
 
     app(PostingTracker::class)->markAllSeen($this->user);
 
-    $this->get('/')->assertOk()->assertDontSee('data-unseen-count', false);
+    Livewire::withoutLazyLoading()->test(UnseenCounter::class)->assertDontSeeHtml('data-unseen-count');
 });
 
 it('refreshes the unseen count in the navigation when marks change', function (): void {
@@ -104,7 +107,7 @@ it('refreshes the unseen count in the navigation when marks change', function ()
         ->call('mark', $this->psych->id, 'saved')->assertDispatched(UnseenCounter::MARKS_CHANGED)
         ->call('markAllSeen')->assertDispatched(UnseenCounter::MARKS_CHANGED);
 
-    $counter = Livewire::test(UnseenCounter::class)->assertDontSeeHtml('data-unseen-count');
+    $counter = Livewire::withoutLazyLoading()->test(UnseenCounter::class)->assertDontSeeHtml('data-unseen-count');
 
     Carbon::setTestNow('2026-09-29 03:00:00');
     JobPosting::factory()->for($this->backend->board)->create(['first_seen_at' => now()]);
