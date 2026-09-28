@@ -105,4 +105,10 @@ return [
         'password' => env('RADAR_BASIC_AUTH_PASSWORD'),
     ],
 
+    /*
+    | Whether anyone can create an account on /register. Off, only
+    | radar:user creates accounts. Admin rights come from radar:admin only.
+    */
+    'registration' => (bool) env('RADAR_REGISTRATION', true),
+
 ];

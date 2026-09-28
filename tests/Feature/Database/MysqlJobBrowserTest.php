@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\MarkStatus;
 use App\Livewire\JobBrowser;
 use App\Models\Board;
 use App\Models\JobPosting;
+use App\Models\User;
+use App\Tracking\PostingTracker;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
@@ -42,6 +45,17 @@ it('answers within 300 ms with 50 000 postings', function (): void {
 
     expect(JobPosting::query()->count())->toBe(50_000);
 
+    // A logged in user with a realistic number of marks, so the unseen
+    // count, rejected postings and the per-user cache are all exercised.
+    $user = User::factory()->create();
+    $tracker = app(PostingTracker::class);
+    $ids = JobPosting::query()->inRandomOrder()->limit(600)->pluck('id')->all();
+    $tracker->markSeen($user, array_slice($ids, 0, 300));
+    foreach (array_slice($ids, 300) as $i => $id) {
+        $tracker->mark($user, $id, MarkStatus::cases()[$i % 3]);
+    }
+    $this->actingAs($user);
+
     $urls = [
         '/',
         '/?view=flat',
@@ -49,6 +63,8 @@ it('answers within 300 ms with 50 000 postings', function (): void {
         '/?q=systemutvecklare',
         '/?q=patienter&department=Vård',
         '/?view=flat&q=python+aws&kind=custom',
+        '/?unseen=1',
+        '/mina',
     ];
 
     // Warm up compiled views, opcodes and the database buffer pool.

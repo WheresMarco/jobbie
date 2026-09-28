@@ -6,6 +6,7 @@ use App\Enums\RemoteStatus;
 use App\Livewire\JobBrowser;
 use App\Models\Board;
 use App\Models\JobPosting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
@@ -116,7 +117,7 @@ it('keeps filter state in the URL', function (): void {
         ->set('country', 'SE')
         ->assertSet('country', 'SE');
 
-    $this->get('/?q=psyk&country=NO&view=flat')
+    $this->actingAs(User::factory()->create())->get('/?q=psyk&country=NO&view=flat')
         ->assertOk()
         ->assertSeeText('Psykolog')
         ->assertDontSee('Backendutvecklare');
@@ -172,11 +173,12 @@ it('groups postings without company under the career site name', function (): vo
 });
 
 it('renders the page', function (): void {
-    $this->get('/')->assertOk()->assertSeeLivewire(JobBrowser::class)->assertSee('Jobbie');
+    $this->actingAs(User::factory()->create())->get('/')->assertOk()->assertSeeLivewire(JobBrowser::class)->assertSee('Jobbie');
 });
 
 it('reuses cached search results without crashing on a second request', function (): void {
     cache()->flush();
+    $this->actingAs(User::factory()->create());
 
     $this->get('/')->assertOk();
     $this->get('/')->assertOk();

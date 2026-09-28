@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\MarksPostings;
+use App\Models\User;
 use App\Search\JobFilters;
 use App\Search\JobSearch;
+use App\Tracking\PostingTracker;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -16,6 +19,8 @@ use Locale;
  */
 final class JobBrowser extends Component
 {
+    use MarksPostings;
+
     public const int PAGE_SIZE = 25;
 
     #[Url(except: '')]
@@ -46,6 +51,10 @@ final class JobBrowser extends Component
     /** Only postings not found in Platsbanken (Phase 9). */
     #[Url(except: false)]
     public bool $missing = false;
+
+    /** Only postings the viewer has not seen. */
+    #[Url(except: false)]
+    public bool $unseen = false;
 
     #[Url(except: 'grouped')]
     public string $view = 'grouped';
@@ -91,7 +100,16 @@ final class JobBrowser extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'missing', 'limit', 'open');
+        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'missing', 'unseen', 'limit', 'open');
+    }
+
+    /**
+     * Everything discovered so far counts as seen, whatever the filters.
+     */
+    public function markAllSeen(): void
+    {
+        app(PostingTracker::class)->markAllSeen($this->currentUser());
+        $this->dispatch(UnseenCounter::MARKS_CHANGED);
     }
 
     public function filters(): JobFilters
@@ -106,6 +124,7 @@ final class JobBrowser extends Component
             newOnly: $this->new,
             kind: $this->kind,
             notInPlatsbanken: $this->missing,
+            unseenOnly: $this->unseen,
         );
     }
 
@@ -116,13 +135,17 @@ final class JobBrowser extends Component
         return $name === false || $name === '' ? $code : $name;
     }
 
-    public function render(JobSearch $search): View
+    public function render(JobSearch $search, PostingTracker $tracker): View
     {
+        $user = auth()->user();
+        $marks = $user instanceof User ? $tracker->marks($user) : null;
+
         $filters = $this->filters();
         $grouped = $this->view !== 'flat';
-        $result = $search->search($filters, $grouped, $this->limit, $this->open);
+        $result = $search->search($filters, $grouped, $this->limit, $this->open, $marks);
 
         return view('livewire.job-browser', [
+            'userMarks' => $marks,
             'filters' => $filters,
             'terms' => $filters->terms(),
             'total' => $result->total,

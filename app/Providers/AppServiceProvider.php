@@ -12,6 +12,7 @@ use App\Discovery\Sources\PrefixSource;
 use App\Discovery\Sources\SearchApiSource;
 use App\Discovery\Sources\TxtRecordSource;
 use App\Discovery\Verifier;
+use App\Models\User;
 use App\Net\BigQuery;
 use App\Net\Contracts\CertificateFetcher;
 use App\Net\Contracts\DnsResolver;
@@ -24,6 +25,7 @@ use App\Scraping\FeedClient;
 use App\Scraping\RssEnricher;
 use App\Search\JobSearch;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -122,6 +124,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        // Statistics and Horizon. Not fillable: only radar:admin grants it.
+        Gate::define('admin', static fn (User $user): bool => $user->is_admin);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Models\Candidate;
 use App\Models\Domain;
+use App\Models\User;
 use App\Stats\RadarStats;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,7 +75,7 @@ it('renders the statistics page', function (): void {
         ->assertSee('hidden.se')
         ->assertSee('Egen domän');
 
-    $this->get('/stats')->assertOk();
+    $this->actingAs(User::factory()->admin()->create())->get('/stats')->assertOk();
 });
 
 it('schedules scraping, discovery, the suffix list and Horizon snapshots', function (): void {

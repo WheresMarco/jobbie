@@ -17,6 +17,7 @@ final readonly class Facets
      * @param  array<int, int>  $published  days => postings
      * @param  array<string, int>  $kinds  BoardKind value => postings
      * @param  int  $notInPlatsbanken  Postings not found in Platsbanken
+     * @param  int  $unseen  Postings the user has not seen
      */
     public function __construct(
         public array $countries,
@@ -27,6 +28,7 @@ final readonly class Facets
         public int $new,
         public array $kinds,
         public int $notInPlatsbanken = 0,
+        public int $unseen = 0,
     ) {
     }
 }

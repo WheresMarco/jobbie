@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Http\Middleware\BasicAuth;
+use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\Horizon;
@@ -31,8 +31,8 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      */
     protected function gate(): void
     {
-        // There are no user accounts. Horizon sits behind the same Basic Auth
-        // as the rest of the app, and stays closed when that is not set up.
-        Gate::define('viewHorizon', static fn (?Authenticatable $user = null): bool => app()->environment('local') || BasicAuth::configured());
+        // Admins only; locally also without logging in.
+        Gate::define('viewHorizon', static fn (?Authenticatable $user = null): bool => app()->environment('local')
+            || ($user instanceof User && $user->is_admin));
     }
 }
