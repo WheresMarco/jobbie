@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\Horizon;
@@ -30,7 +31,8 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
      */
     protected function gate(): void
     {
-        // Any logged in user; locally also without logging in.
-        Gate::define('viewHorizon', static fn (?Authenticatable $user = null): bool => app()->environment('local') || $user !== null);
+        // Admins only; locally also without logging in.
+        Gate::define('viewHorizon', static fn (?Authenticatable $user = null): bool => app()->environment('local')
+            || ($user instanceof User && $user->is_admin));
     }
 }

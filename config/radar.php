@@ -106,8 +106,8 @@ return [
     ],
 
     /*
-    | Whether anyone can create an account on /register. Turn it off once
-    | the app is reachable by others; radar:user still creates accounts.
+    | Whether anyone can create an account on /register. Off, only
+    | radar:user creates accounts. Admin rights come from radar:admin only.
     */
     'registration' => (bool) env('RADAR_REGISTRATION', true),
 

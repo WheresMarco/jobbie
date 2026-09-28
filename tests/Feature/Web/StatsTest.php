@@ -75,7 +75,7 @@ it('renders the statistics page', function (): void {
         ->assertSee('hidden.se')
         ->assertSee('Egen domän');
 
-    $this->actingAs(User::factory()->create())->get('/stats')->assertOk();
+    $this->actingAs(User::factory()->admin()->create())->get('/stats')->assertOk();
 });
 
 it('schedules scraping, discovery, the suffix list and Horizon snapshots', function (): void {

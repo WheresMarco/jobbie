@@ -111,6 +111,11 @@ return [
     'match_platsbanken' => [
         'done' => ':matched of :active active postings (:share %) are also in Platsbanken: :apply_url by apply link, :org_title by organisation number and title.',
     ],
+    'admin' => [
+        'not_found' => 'There is no account with the address :email.',
+        'granted' => ':email is now an admin.',
+        'revoked' => ':email is no longer an admin.',
+    ],
     'user' => [
         'invalid_email' => '":email" is not a valid email address.',
         'password' => 'Password',

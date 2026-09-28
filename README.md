@@ -18,7 +18,7 @@ docker compose up -d mysql redis
 composer install
 php artisan key:generate
 php artisan migrate
-php artisan radar:user din@adress.se   # eller skapa kontot på /register
+php artisan radar:user din@adress.se --admin
 ```
 
 Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`. Gränssnittet behöver byggda resurser (`npm install && npm run build`). Med `php artisan db:seed --class=DemoSeeder` fylls databasen med påhittade annonser att prova med.
@@ -41,7 +41,8 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 
 | Kommando | Vad det gör |
 | --- | --- |
-| `radar:user {e-post}` | Skapar ett konto, eller sätter nytt lösenord för ett befintligt. Lösenordet (minst 8 tecken) frågas efter. `--name=` sätter visningsnamnet |
+| `radar:user {e-post}` | Skapar ett konto, eller sätter nytt lösenord för ett befintligt. Lösenordet (minst 8 tecken) frågas efter. `--name=` sätter visningsnamnet och `--admin` ger adminrättigheter |
+| `radar:admin {e-post}` | Ger ett befintligt konto adminrättigheter. `--revoke` tar bort dem |
 | `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
 | `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
@@ -102,7 +103,7 @@ Status på karriärsidan: `active` (har annonser), `empty` (flödet är tomt), `
 
 ## Webbgränssnitt
 
-`/` visar alla aktiva annonser, grupperade per arbetsgivare eller som platt lista. Gruppering sker på annonsens arbetsgivare och inte på karriärsidan, eftersom bemanningsföretag annonserar åt kunder. Filtren (fritext, osedda, land, ort, arbetsplats, avdelning, publiceringsdatum, nyupptäckta och typ av karriärsida) sparas i URL:en, och varje filter visar antal träffar givet de andra filtren. Antalen cachas en minut per filterkombination. `/stats` visar samma statistik som `radar:stats`.
+`/` visar alla aktiva annonser, grupperade per arbetsgivare eller som platt lista. Gruppering sker på annonsens arbetsgivare och inte på karriärsidan, eftersom bemanningsföretag annonserar åt kunder. Filtren (fritext, osedda, land, ort, arbetsplats, avdelning, publiceringsdatum, nyupptäckta och typ av karriärsida) sparas i URL:en, och varje filter visar antal träffar givet de andra filtren. Antalen cachas en minut per filterkombination. `/stats` visar samma statistik som `radar:stats` och är bara öppen för admins.
 
 Fritext söker i titel, arbetsgivare och beskrivning via MySQL FULLTEXT i boolean mode, med `+ord*` per ord. Det betyder att ett ord matchar i början av ord. "utvecklare" hittar därför inte "Backendutvecklare". Ord kortare än tre tecken söks med LIKE, eftersom de ligger under InnoDB:s minsta ordlängd.
 
@@ -110,7 +111,9 @@ Sökningen (`App\Search\JobSearch`) matchar fritexten i SQL och läser sedan en 
 
 ## Konton och markeringar
 
-Alla sidor kräver inloggning med e-post och lösenord på `/login`. Konton skapas på `/register` (namn, e-post och lösenord med minst 8 tecken), varefter man är inloggad direkt, eller med `php artisan radar:user`. Registreringen tillåter högst fem nya konton per IP-adress och timme och stängs av med `RADAR_REGISTRATION=false`, vilket bör göras innan appen går att nå för andra. Efter fem felaktiga inloggningsförsök spärras inloggningen för adressen en stund. Horizon (`/horizon`) kräver också inloggning, utom lokalt.
+Tjänsten är öppen för alla: vem som helst kan skapa ett konto på `/register` (namn, e-post och lösenord med minst 8 tecken) och är sedan inloggad direkt. Alla sidor utom inloggning och registrering kräver ett konto. Registreringen tillåter högst fem nya konton per IP-adress och timme och kan stängas med `RADAR_REGISTRATION=false`. Efter fem felaktiga inloggningsförsök spärras inloggningen för adressen en stund.
+
+Det finns två roller. Vanliga användare ser annonserna och sina markeringar. Admins ser dessutom statistiken (`/stats`) och Horizon (`/horizon`). Man blir aldrig admin genom registreringen, bara med `php artisan radar:admin {e-post}` eller `radar:user --admin`. Lokalt är Horizon öppen även utan inloggning.
 
 Varje användare kan markera annonser:
 
@@ -124,7 +127,7 @@ En annons är **osedd** tills man markerar den, öppnar den, väljer *Markera so
 
 Markeringarna ligger i tabellen `job_posting_marks`, en rad per användare och annons som användaren har sett eller markerat. Sökresultatet cachas per användare och räknas om när användarens markeringar ändras.
 
-Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` satta krävs dessutom HTTP Basic Auth framför hela appen. I produktion utan dessa värden svarar appen 403. Exponera den inte öppet på internet.
+Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` satta krävs dessutom HTTP Basic Auth framför hela appen, till exempel medan en server testas innan den öppnas. Utan dem påverkar Basic Auth ingenting.
 
 ## Överlapp mot Platsbanken
 

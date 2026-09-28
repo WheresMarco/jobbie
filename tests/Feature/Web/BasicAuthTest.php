@@ -8,17 +8,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
 });
 
-it('is open without credentials outside production', function (): void {
+it('is off without credentials, also in production', function (): void {
     $this->get('/')->assertOk();
-});
 
-it('refuses to serve production without credentials', function (): void {
     app()->detectEnvironment(fn () => 'production');
-
-    $this->get('/')->assertForbidden();
+    $this->get('/')->assertOk();
 });
 
 it('requires the configured credentials', function (): void {

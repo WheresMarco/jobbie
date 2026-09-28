@@ -16,7 +16,8 @@ final class RadarUser extends Command
 
     protected $signature = 'radar:user
         {email : Email address to log in with}
-        {--name= : Display name (default: the part of the address before @)}';
+        {--name= : Display name (default: the part of the address before @)}
+        {--admin : Also give the account admin rights}';
 
     protected $description = 'Create an account, or set a new password for an existing one';
 
@@ -46,23 +47,19 @@ final class RadarUser extends Command
         $name = $this->option('name');
         $name = is_string($name) && trim($name) !== '' ? trim($name) : null;
 
-        if ($user === null) {
-            User::query()->create([
-                'email' => $email,
-                'name' => $name ?? strstr($email, '@', true),
-                'password' => $password,
-            ]);
-            $this->components->info($this->t('radar.user.created', ['email' => $email]));
-
-            return self::SUCCESS;
-        }
+        $created = $user === null;
+        $user ??= new User(['email' => $email, 'name' => strstr($email, '@', true)]);
 
         $user->password = $password;
         if ($name !== null) {
             $user->name = $name;
         }
+        if ($this->option('admin')) {
+            $user->is_admin = true;
+        }
         $user->save();
-        $this->components->info($this->t('radar.user.updated', ['email' => $email]));
+
+        $this->components->info($this->t($created ? 'radar.user.created' : 'radar.user.updated', ['email' => $email]));
 
         return self::SUCCESS;
     }

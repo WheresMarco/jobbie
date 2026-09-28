@@ -111,6 +111,11 @@ return [
     'match_platsbanken' => [
         'done' => ':matched av :active aktiva annonser (:share %) finns även i Platsbanken: :apply_url via ansökningslänk, :org_title via organisationsnummer och titel.',
     ],
+    'admin' => [
+        'not_found' => 'Det finns inget konto med adressen :email.',
+        'granted' => ':email är nu admin.',
+        'revoked' => ':email är inte längre admin.',
+    ],
     'user' => [
         'invalid_email' => '”:email” är ingen giltig e-postadress.',
         'password' => 'Lösenord',

@@ -9,10 +9,10 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * An extra lock in front of the whole app, on top of the user accounts.
- * With RADAR_BASIC_AUTH_USER and RADAR_BASIC_AUTH_PASSWORD set, every web
- * request needs those credentials. Without them the app is only served
- * outside production.
+ * An optional extra lock in front of the whole app, on top of the user
+ * accounts, for example while testing a server before opening it up. With
+ * RADAR_BASIC_AUTH_USER and RADAR_BASIC_AUTH_PASSWORD set, every web
+ * request needs those credentials; without them nothing changes.
  */
 final class BasicAuth
 {
@@ -22,8 +22,6 @@ final class BasicAuth
         $password = config('radar.basic_auth.password');
 
         if (! is_string($user) || $user === '' || ! is_string($password) || $password === '') {
-            abort_if(app()->environment('production'), 403, 'Set RADAR_BASIC_AUTH_USER and RADAR_BASIC_AUTH_PASSWORD.');
-
             return $next($request);
         }
 
@@ -34,9 +32,4 @@ final class BasicAuth
         return response('', 401, ['WWW-Authenticate' => 'Basic realm="Jobbie", charset="UTF-8"']);
     }
 
-    public static function configured(): bool
-    {
-        return is_string(config('radar.basic_auth.user')) && config('radar.basic_auth.user') !== ''
-            && is_string(config('radar.basic_auth.password')) && config('radar.basic_auth.password') !== '';
-    }
 }

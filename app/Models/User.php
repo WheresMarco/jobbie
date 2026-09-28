@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $email
  * @property Carbon|null $postings_seen_until
  * @property int $marks_version
+ * @property bool $is_admin
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -32,6 +33,7 @@ class User extends Authenticatable
     /** @var array<string, mixed> */
     protected $attributes = [
         'marks_version' => 0,
+        'is_admin' => false,
     ];
 
     /**
@@ -54,6 +56,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'postings_seen_until' => 'datetime',
             'marks_version' => 'integer',
+            'is_admin' => 'boolean',
         ];
     }
 }

@@ -25,8 +25,10 @@
                         </a>
                         <a href="{{ route('mine') }}" wire:navigate
                            @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('mine')])>{{ __('ui.nav.mine') }}</a>
-                        <a href="{{ route('stats') }}" wire:navigate
-                           @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('stats')])>{{ __('ui.nav.stats') }}</a>
+                        @can('admin')
+                            <a href="{{ route('stats') }}" wire:navigate
+                               @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('stats')])>{{ __('ui.nav.stats') }}</a>
+                        @endcan
                         <form method="POST" action="{{ route('logout') }}" class="ml-auto sm:ml-0">
                             @csrf
                             <button type="submit" class="rounded-md px-3 py-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900"

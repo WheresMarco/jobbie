@@ -19,7 +19,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('/', JobBrowser::class)->name('jobs');
     Route::get('/mina', MyPostings::class)->name('mine');
-    Route::get('/stats', StatsPage::class)->name('stats');
+    Route::get('/stats', StatsPage::class)->middleware('can:admin')->name('stats');
 
     Route::post('/logout', function (Request $request) {
         Auth::guard('web')->logout();
