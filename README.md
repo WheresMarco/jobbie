@@ -117,71 +117,16 @@ Premissen är att annonserna på Teamtailor-sidorna inte syns någon annanstans.
 
 Matchade annonser får märket "Finns även i Platsbanken", gränssnittet har filtret "Bara annonser som saknas i Platsbanken", och andelen syns på statistiksidan.
 
-## Driftsättning på Laravel Cloud
+## Köer och första körningen
 
-Appen är förberedd för [Laravel Cloud](https://cloud.laravel.com): tunga jobb körs i Horizon, schemaläggaren köar bara arbete, och appen litar på lastbalanserarens `X-Forwarded-*`-huvuden så att länkar blir `https`.
+Tunga jobb körs i Horizon (`php artisan horizon`, eller tjänsten `horizon` i `docker compose`). Schemaläggaren köar bara arbete. Två köer används:
 
-### Automatiskt via GitHub Actions
+* `default` på anslutningen `redis` för skrapning och verifiering (tidsgräns 900 s, upp till `HORIZON_MAX_PROCESSES` processer, standard 10).
+* `discovery` för JobStream och kandidatinsamling (en process, tidsgräns en timme). Den används när `RADAR_LONG_QUEUE_CONNECTION=redis-long` är satt. Annars hamnar jobben på standardanslutningen.
 
-Arbetsflödet `Laravel Cloud` (`.github/workflows/laravel-cloud.yml`) sätter upp allt i listan nedan med [Clouds CLI](https://github.com/laravel/cloud-cli) och driftsätter sedan. Skriptet bakom är `scripts/cloud-provision.php`. Det återanvänder det som redan finns, så arbetsflödet kan köras igen för att uppdatera inställningar eller bara driftsätta.
+`retry_after` är satt längre än respektive tidsgräns, så att pågående jobb inte startas om.
 
-Förberedelser, en gång:
-
-1. Skapa ett konto på Laravel Cloud, lägg in betalning och koppla GitHub-kontot (Cloud måste kunna läsa repot).
-2. Skapa en API-token i Clouds organisationsinställningar.
-3. Lägg in i repots inställningar under *Secrets and variables → Actions*:
-    * hemligheten `LARAVEL_CLOUD_TOKEN`,
-    * hemligheten `RADAR_BASIC_AUTH_PASSWORD`,
-    * variabeln `RADAR_BASIC_AUTH_USER`,
-    * gärna variabeln `RADAR_USER_AGENT` med en kontaktadress,
-    * valfritt hemligheten `RADAR_SEARCH_API_KEY` och variabeln `CLOUD_APP_NAME` (standard `jobbie`).
-4. Arbetsflödet måste ligga på standardgrenen för att kunna startas manuellt.
-
-Kör sedan *Actions → Laravel Cloud → Run workflow*. Första gången bör *first_run* kryssas i, så köas upptäckt och skrapning direkt efter driftsättningen. Adressen till appen står i körningens sammanfattning.
-
-Det som skapas: applikationen med en Laravel MySQL-databas (förinställningen `dev`), en Valkey-cache, schemaläggaren på webbinstansen, en workerinstans `horizon` (minsta storleken med minst 1 GB minne, kan ändras med *worker_size*) med bakgrundsprocessen `php artisan horizon`, samt miljövariablerna nedan. `APP_KEY` genereras bara om den saknas.
-
-### Manuellt
-
-Samma miljö kan också skapas för hand i Clouds gränssnitt:
-
-1. **Applikation.** Skapa en applikation från GitHub-repot `wheresmarco/jobbie` och välj grenen som ska driftsättas. Region: EU (Frankfurt eller Amsterdam) ligger närmast Sverige.
-2. **Resurser.** Koppla en **Laravel MySQL**-databas (MySQL 8 krävs för FULLTEXT) och en **Laravel Valkey**-cache (Redis-kompatibel, fungerar med Horizon). Cloud sätter då `DB_*` och `REDIS_*` själv.
-3. **Byggkommandon.**
-
-    ```sh
-    composer install --no-dev --optimize-autoloader
-    npm ci
-    npm run build
-    ```
-
-4. **Driftsättningskommandon.**
-
-    ```sh
-    php artisan migrate --force
-    php artisan horizon:terminate
-    ```
-
-5. **Beräkning.** Webbklustret räcker med minsta storleken. Slå på **Scheduler** för miljön. Lägg till en bakgrundsprocess med kommandot `php artisan horizon` och **en** instans, helst på ett eget workerkluster med minst 1 GB minne och några GB disk, eftersom JobStreams ögonblicksbild (cirka 300 MB) laddas ner till disk och läses strömmande.
-6. **Miljövariabler** (utöver dem Cloud sätter):
-
-    ```dotenv
-    APP_NAME="Jobbie"
-    APP_DEBUG=false
-    APP_LOCALE=sv
-    QUEUE_CONNECTION=redis
-    CACHE_STORE=redis
-    SESSION_DRIVER=redis
-    RADAR_LONG_QUEUE_CONNECTION=redis-long
-    RADAR_BASIC_AUTH_USER=välj-ett-namn
-    RADAR_BASIC_AUTH_PASSWORD=välj-ett-långt-lösenord
-    RADAR_USER_AGENT="Jobbie/1.0 (+mailto:din-adress)"
-    ```
-
-    Utan `RADAR_BASIC_AUTH_*` svarar appen 403 i produktion. Horizon (`/horizon`) ligger bakom samma inloggning.
-7. **Första körningen.** Kör `php artisan radar:discover --verify` från Clouds kommandofönster. Det köar JobStream, prefixprobning och Common Crawl i en kedja som avslutas med verifiering. Följ förloppet i Horizon. Kör sedan `php artisan radar:scrape --no-wait`. Därefter sköter schemat resten.
-
-Två köer används: `default` på anslutningen `redis` för skrapning och verifiering (tidsgräns 900 s, upp till `HORIZON_MAX_PROCESSES` processer, standard 10), och `discovery` på `redis-long` för JobStream och kandidatinsamling (en process, tidsgräns en timme). `retry_after` är satt längre än respektive tidsgräns, så att pågående jobb inte startas om. Filer i `storage` överlever inte en ny driftsättning. Det gäller bara den hämtade Public Suffix List, som då faller tillbaka på kopian i repot tills `radar:update-psl` körs igen.
+Första gången: kör `php artisan radar:discover --verify`. Det köar JobStream, prefixprobning och Common Crawl i en kedja som avslutas med verifiering. Följ förloppet i Horizon på `/horizon`. Kör sedan `php artisan radar:scrape --no-wait`. Därefter sköter schemat resten.
 
 ## Konfiguration
 
