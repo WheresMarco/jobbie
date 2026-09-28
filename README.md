@@ -18,7 +18,7 @@ docker compose up -d mysql redis
 composer install
 php artisan key:generate
 php artisan migrate
-php artisan radar:user din@adress.se
+php artisan radar:user din@adress.se   # eller skapa kontot på /register
 ```
 
 Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`. Gränssnittet behöver byggda resurser (`npm install && npm run build`). Med `php artisan db:seed --class=DemoSeeder` fylls databasen med påhittade annonser att prova med.
@@ -110,7 +110,7 @@ Sökningen (`App\Search\JobSearch`) matchar fritexten i SQL och läser sedan en 
 
 ## Konton och markeringar
 
-Alla sidor kräver inloggning med e-post och lösenord på `/login`. Det finns ingen registrering. Konton skapas med `php artisan radar:user`. Efter fem felaktiga försök spärras inloggningen för adressen en stund. Horizon (`/horizon`) kräver också inloggning, utom lokalt.
+Alla sidor kräver inloggning med e-post och lösenord på `/login`. Konton skapas på `/register` (namn, e-post och lösenord med minst 8 tecken), varefter man är inloggad direkt, eller med `php artisan radar:user`. Registreringen tillåter högst fem nya konton per IP-adress och timme och stängs av med `RADAR_REGISTRATION=false`, vilket bör göras innan appen går att nå för andra. Efter fem felaktiga inloggningsförsök spärras inloggningen för adressen en stund. Horizon (`/horizon`) kräver också inloggning, utom lokalt.
 
 Varje användare kan markera annonser:
 

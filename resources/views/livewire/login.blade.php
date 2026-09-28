@@ -29,5 +29,12 @@
             <span wire:loading.remove wire:target="login">{{ __('ui.auth.submit') }}</span>
             <span wire:loading wire:target="login">{{ __('ui.jobs.loading') }}</span>
         </button>
+
+        @if (\App\Livewire\Register::enabled())
+            <p class="text-center text-sm text-stone-600">
+                {{ __('ui.auth.no_account') }}
+                <a href="{{ route('register') }}" wire:navigate class="text-accent-700 hover:underline">{{ __('ui.auth.register_link') }}</a>
+            </p>
+        @endif
     </form>
 </div>

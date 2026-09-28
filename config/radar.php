@@ -105,4 +105,10 @@ return [
         'password' => env('RADAR_BASIC_AUTH_PASSWORD'),
     ],
 
+    /*
+    | Whether anyone can create an account on /register. Turn it off once
+    | the app is reachable by others; radar:user still creates accounts.
+    */
+    'registration' => (bool) env('RADAR_REGISTRATION', true),
+
 ];
