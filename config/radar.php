@@ -58,6 +58,12 @@ return [
     'rejected_recheck_days' => (int) env('RADAR_REJECTED_RECHECK_DAYS', 60),
     'new_job_days' => (int) env('RADAR_NEW_JOB_DAYS', 7),
 
+    /*
+    | Postings scoring at least this much (0 to 100) against a user's
+    | profile count as matching (App\Matching\Matcher).
+    */
+    'match_threshold' => (int) env('RADAR_MATCH_THRESHOLD', 40),
+
     'sources' => [
         'enabled' => array_values(array_filter(explode(',', (string) env(
             'RADAR_SOURCES',

@@ -25,6 +25,14 @@
                 @endunless
             </div>
 
+            @if ($profile)
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" wire:model.live="matching" class="rounded border-stone-300 text-accent-600">
+                    <span class="flex-1 font-medium">{{ __('ui.filters.matching', ['threshold' => $matchThreshold]) }}</span>
+                    <span class="text-xs tabular-nums text-stone-500" data-facet="matching">{{ $facets->matching }}</span>
+                </label>
+            @endif
+
             @if ($userMarks)
                 <div class="space-y-1.5">
                     <label class="flex items-center gap-2 text-sm">
@@ -135,6 +143,14 @@
             <div class="flex shrink-0 gap-2">
                 <button type="button" @click="filtersOpen = ! filtersOpen"
                         class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm lg:hidden">{{ __('ui.filters.title') }}</button>
+                @if ($profile)
+                    <div class="inline-flex rounded-lg border border-stone-300 bg-white p-0.5 text-sm" role="group" aria-label="{{ __('ui.jobs.sort') }}">
+                        <button type="button" wire:click="$set('sort', '')" aria-pressed="{{ $byMatch ? 'true' : 'false' }}"
+                                @class(['rounded-md px-3 py-1.5', 'bg-stone-900 text-white' => $byMatch])>{{ __('ui.jobs.sort_match') }}</button>
+                        <button type="button" wire:click="$set('sort', 'newest')" aria-pressed="{{ $byMatch ? 'false' : 'true' }}"
+                                @class(['rounded-md px-3 py-1.5', 'bg-stone-900 text-white' => ! $byMatch])>{{ __('ui.jobs.sort_newest') }}</button>
+                    </div>
+                @endif
                 <div class="inline-flex rounded-lg border border-stone-300 bg-white p-0.5 text-sm" role="group" aria-label="{{ __('ui.jobs.view') }}">
                     <button type="button" wire:click="$set('view', 'grouped')" aria-pressed="{{ $grouped ? 'true' : 'false' }}"
                             @class(['rounded-md px-3 py-1.5', 'bg-stone-900 text-white' => $grouped])>{{ __('ui.jobs.view_grouped') }}</button>
@@ -143,6 +159,15 @@
                 </div>
             </div>
         </div>
+
+        @if (! $profile)
+            <p class="mt-4 rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-600" data-profile-hint>
+                {{ __('ui.jobs.profile_hint') }}
+                <a href="{{ route('profile') }}" wire:navigate class="ml-1 text-accent-700 hover:underline">{{ __('ui.jobs.profile_link') }}</a>
+            </p>
+        @elseif ($profile->scored_at === null)
+            <p class="mt-4 rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-600">{{ __('ui.jobs.profile_scoring') }}</p>
+        @endif
 
         <p class="mt-4 text-sm text-stone-600" data-total="{{ $total }}">
             {{ trans_choice('ui.jobs.count', $total, ['count' => number_format($total, 0, ',', ' ')]) }}
@@ -186,7 +211,7 @@
                         @if ($group->open)
                             <ul class="divide-y divide-stone-100 border-t border-stone-100 px-4">
                                 @foreach ($group->postings as $posting)
-                                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => false, 'userMarks' => $userMarks])
+                                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => false, 'userMarks' => $userMarks, 'match' => $matchResults[$posting->id] ?? null])
                                 @endforeach
                             </ul>
                             <div class="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-4 py-2 text-sm">
@@ -206,7 +231,7 @@
         @else
             <ul class="mt-4 divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white px-4">
                 @foreach ($postings as $posting)
-                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => true, 'userMarks' => $userMarks])
+                    @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => true, 'userMarks' => $userMarks, 'match' => $matchResults[$posting->id] ?? null])
                 @endforeach
             </ul>
         @endif

@@ -10,6 +10,15 @@
     $userMarks ??= null;
     $status = $userMarks?->status($posting->id);
     $isUnseen = $userMarks?->isUnseen($posting->id, $posting->first_seen_at) ?? false;
+    /** @var \App\Matching\MatchResult|null $match */
+    $match ??= null;
+    $matchReasons = $match === null ? [] : array_filter([
+        $match->excluded !== null ? __('ui.jobs.match_excluded', ['word' => $match->excluded]) : null,
+        $match->title !== null ? __('ui.jobs.match_title', ['title' => $match->title]) : null,
+        $match->skills !== [] ? __('ui.jobs.match_skills', ['skills' => implode(', ', $match->skills)]) : null,
+        $match->location ? __('ui.jobs.match_location') : null,
+    ]);
+    $matching = $match !== null && $match->score >= config()->integer('radar.match_threshold');
 @endphp
 <li class="py-3" wire:key="posting-{{ $posting->id }}" @if ($status) data-status="{{ $status->value }}" @endif>
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -22,6 +31,13 @@
                @if ($isUnseen) wire:click="markSeen({{ $posting->id }})" @endif
                class="font-medium text-stone-900 hover:text-accent-700 hover:underline">{{ \App\Search\Highlighter::highlight($posting->title, $terms) }}</a>
         </span>
+        @if ($match)
+            <span @class([
+                'ml-auto shrink-0 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
+                'bg-accent-100 text-accent-700' => $matching,
+                'bg-stone-100 text-stone-600' => ! $matching,
+            ]) data-score="{{ $match->score }}">{{ __('ui.jobs.match_badge', ['score' => $match->score]) }}</span>
+        @endif
         @if ($posting->posted_at)
             <time datetime="{{ $posting->posted_at->toIso8601String() }}" class="shrink-0 text-xs text-stone-500">
                 {{ $posting->posted_at->locale(app()->getLocale())->isoFormat('D MMM YYYY') }}
@@ -56,6 +72,9 @@
             <span class="rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700">{{ __('ui.jobs.closed_badge') }}</span>
         @endunless
     </div>
+    @if ($matchReasons !== [])
+        <p class="mt-1 text-xs text-stone-500" data-match-reasons>{{ implode(' · ', $matchReasons) }}</p>
+    @endif
     @if ($terms !== [] && $posting->description)
         <p class="mt-1.5 text-sm leading-relaxed text-stone-600">{{ \App\Search\Highlighter::snippet($posting->description, $terms) }}</p>
     @endif

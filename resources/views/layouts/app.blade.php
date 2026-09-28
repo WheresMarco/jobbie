@@ -25,6 +25,8 @@
                         </a>
                         <a href="{{ route('mine') }}" wire:navigate
                            @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('mine')])>{{ __('ui.nav.mine') }}</a>
+                        <a href="{{ route('profile') }}" wire:navigate
+                           @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('profile')])>{{ __('ui.nav.profile') }}</a>
                         @can('admin')
                             <a href="{{ route('stats') }}" wire:navigate
                                @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('stats')])>{{ __('ui.nav.stats') }}</a>

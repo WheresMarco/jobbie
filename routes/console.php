@@ -31,6 +31,13 @@ Schedule::command('radar:match-platsbanken')
     ->onOneServer()
     ->runInBackground();
 
+// After the nightly scrape, so new postings get scores.
+Schedule::command('radar:match-profiles')
+    ->dailyAt('05:45')
+    ->timezone('Europe/Stockholm')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 Schedule::command('radar:update-psl')
     ->weeklyOn(0, '04:00')
     ->timezone('Europe/Stockholm')

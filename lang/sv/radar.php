@@ -108,6 +108,11 @@ return [
         'onsite' => 'På plats',
         'unknown' => 'Ej angivet',
     ],
+    'match_profiles' => [
+        'dispatched' => ':count profiler köade för matchning.',
+        'done' => ':count profiler matchade.',
+        'matching' => ':count matchande annonser',
+    ],
     'match_platsbanken' => [
         'done' => ':matched av :active aktiva annonser (:share %) finns även i Platsbanken: :apply_url via ansökningslänk, :org_title via organisationsnummer och titel.',
     ],

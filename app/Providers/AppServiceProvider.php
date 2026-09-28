@@ -12,6 +12,8 @@ use App\Discovery\Sources\PrefixSource;
 use App\Discovery\Sources\SearchApiSource;
 use App\Discovery\Sources\TxtRecordSource;
 use App\Discovery\Verifier;
+use App\Matching\Matcher;
+use App\Matching\ProfileScorer;
 use App\Models\User;
 use App\Net\BigQuery;
 use App\Net\Contracts\CertificateFetcher;
@@ -111,6 +113,11 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(JobSearch::class, static fn (): JobSearch => new JobSearch(
             newJobDays: config()->integer('radar.new_job_days'),
+        ));
+
+        $this->app->bind(ProfileScorer::class, static fn (Application $app): ProfileScorer => new ProfileScorer(
+            matcher: $app->make(Matcher::class),
+            threshold: config()->integer('radar.match_threshold'),
         ));
 
         $this->app->bind(Calibrator::class, static fn (Application $app): Calibrator => new Calibrator(

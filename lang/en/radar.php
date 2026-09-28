@@ -108,6 +108,11 @@ return [
         'onsite' => 'On site',
         'unknown' => 'Not stated',
     ],
+    'match_profiles' => [
+        'dispatched' => ':count profiles queued for matching.',
+        'done' => ':count profiles matched.',
+        'matching' => ':count matching postings',
+    ],
     'match_platsbanken' => [
         'done' => ':matched of :active active postings (:share %) are also in Platsbanken: :apply_url by apply link, :org_title by organisation number and title.',
     ],

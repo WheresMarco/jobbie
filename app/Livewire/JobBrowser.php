@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Livewire\Concerns\MarksPostings;
+use App\Matching\Criteria;
+use App\Matching\Matcher;
+use App\Matching\MatchResult;
+use App\Matching\ProfileScorer;
+use App\Models\JobPosting;
 use App\Models\User;
 use App\Search\JobFilters;
 use App\Search\JobSearch;
@@ -56,6 +61,14 @@ final class JobBrowser extends Component
     #[Url(except: false)]
     public bool $unseen = false;
 
+    /** Only postings matching the viewer's profile. */
+    #[Url(except: false)]
+    public bool $matching = false;
+
+    /** "" sorts by best match when the viewer has a profile, "newest" by date. */
+    #[Url(except: '')]
+    public string $sort = '';
+
     #[Url(except: 'grouped')]
     public string $view = 'grouped';
 
@@ -100,7 +113,7 @@ final class JobBrowser extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'missing', 'unseen', 'limit', 'open');
+        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'missing', 'unseen', 'matching', 'limit', 'open');
     }
 
     /**
@@ -125,6 +138,19 @@ final class JobBrowser extends Component
             kind: $this->kind,
             notInPlatsbanken: $this->missing,
             unseenOnly: $this->unseen,
+            matchingOnly: $this->matching,
+        );
+    }
+
+    private static function explain(Matcher $matcher, Criteria $criteria, JobPosting $posting): MatchResult
+    {
+        return $matcher->match(
+            $criteria,
+            $posting->title,
+            $posting->department,
+            $posting->description,
+            $posting->cities,
+            $posting->remote?->value,
         );
     }
 
@@ -135,16 +161,33 @@ final class JobBrowser extends Component
         return $name === false || $name === '' ? $code : $name;
     }
 
-    public function render(JobSearch $search, PostingTracker $tracker): View
+    public function render(JobSearch $search, PostingTracker $tracker, ProfileScorer $scorer, Matcher $matcher): View
     {
         $user = auth()->user();
         $marks = $user instanceof User ? $tracker->marks($user) : null;
+        $profile = $user instanceof User ? $user->profile : null;
+        $matches = $profile === null ? null : $scorer->scores($profile);
+        $byMatch = $matches !== null && $this->sort !== 'newest';
 
         $filters = $this->filters();
         $grouped = $this->view !== 'flat';
-        $result = $search->search($filters, $grouped, $this->limit, $this->open, $marks);
+        $result = $search->search($filters, $grouped, $this->limit, $this->open, $marks, $matches, $byMatch);
+
+        // Why each shown posting matches, against the profile as it is now.
+        $matchResults = [];
+        if ($profile !== null) {
+            $criteria = Criteria::fromProfile($profile);
+            $shown = $grouped ? array_merge([], ...array_map(static fn ($g): array => $g->postings, $result->groups)) : $result->postings;
+            foreach ($shown as $posting) {
+                $matchResults[$posting->id] = self::explain($matcher, $criteria, $posting);
+            }
+        }
 
         return view('livewire.job-browser', [
+            'profile' => $profile,
+            'byMatch' => $byMatch,
+            'matchResults' => $matchResults,
+            'matchThreshold' => $scorer->threshold(),
             'userMarks' => $marks,
             'filters' => $filters,
             'terms' => $filters->terms(),

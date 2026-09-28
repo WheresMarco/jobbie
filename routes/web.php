@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Livewire\JobBrowser;
 use App\Livewire\Login;
 use App\Livewire\MyPostings;
+use App\Livewire\ProfilePage;
 use App\Livewire\Register;
 use App\Livewire\StatsPage;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('/', JobBrowser::class)->name('jobs');
     Route::get('/mina', MyPostings::class)->name('mine');
+    Route::get('/profil', ProfilePage::class)->name('profile');
     Route::get('/stats', StatsPage::class)->middleware('can:admin')->name('stats');
 
     Route::post('/logout', function (Request $request) {

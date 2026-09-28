@@ -23,7 +23,7 @@ php artisan radar:user din@adress.se --admin
 
 Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`. Gränssnittet behöver byggda resurser (`npm install && npm run build`). Med `php artisan db:seed --class=DemoSeeder` fylls databasen med påhittade annonser att prova med.
 
-Schemat i `routes/console.php` körs med `php artisan schedule:work` (eller cron mot `schedule:run`): skrapning varje natt, upptäckt och verifiering varje måndag, Public Suffix List varje söndag och Horizons ögonblicksbilder var femte minut.
+Schemat i `routes/console.php` körs med `php artisan schedule:work` (eller cron mot `schedule:run`): skrapning och matchning mot profiler varje natt, upptäckt och verifiering varje måndag, Public Suffix List varje söndag och Horizons ögonblicksbilder var femte minut.
 
 ## Kontroller
 
@@ -50,6 +50,7 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
 | `radar:smoke {värdar?*}` | Manuellt röktest mot riktiga karriärsidor (standard tre kända). Verifierar och läser flöde och RSS utan att skriva till databasen. Ingår inte i CI |
 | `radar:match-platsbanken` | Markerar annonser som även finns i Platsbanken (körs varje natt) |
+| `radar:match-profiles` | Matchar alla aktiva annonser mot varje användares profil (körs varje natt efter skrapningen). `--sync` kör i samma process i stället för i kön |
 | `radar:stats` | Kandidater per källa och steg, aktiva karriärsidor och annonser per källa, fördelning per typ och status, verifierade per prefix och TXT-kunder utan hittad sida |
 | `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--no-wait` avslutar direkt efter köandet |
 
@@ -178,3 +179,21 @@ Mönstren finns i `App\Discovery\Fingerprint`, med en kommentar per mönster om 
 ## Python-prototypen
 
 Planen utgår från en Python-prototyp (`radar.py`, `web/index.html`) som skulle flyttas till `legacy/`. Den finns inte i det här repot och har därför inte flyttats.
+
+## Profil och matchning
+
+På `/profil` beskriver man vad man söker: önskade titlar, kompetenser, ord som utesluter en annons, orter och vilka arbetssätt (distans, hybrid, på plats) som går bra. Varje sak skrivs på egen rad eller skiljs med kommatecken. När profilen sparas köas jobbet `ScoreProfile`, som ger varje aktiv annons ett värde från 0 till 100. Värdena sparas i `job_posting_scores` (bara värden över noll) och räknas om varje natt med `radar:match-profiles`, så att nya annonser också får ett värde. Töms alla fält tas profilen och värdena bort.
+
+Värdet (`App\Matching\Matcher`) har tre delar:
+
+| Del | Poäng | Hur |
+| --- | --- | --- |
+| Titel | 45 | Andelen av en önskad titels ord som finns i annonsens titel. Hela frasen ger full poäng, och den titel som passar bäst räknas |
+| Kompetenser | 40 | Kompetenser som finns i titel, avdelning eller annonstext. Fyra träffar (eller alla, om profilen har färre) ger full poäng, så en lång lista straffas inte |
+| Ort | 15 | Annonsen ligger på en önskad ort eller är helt på distans, och arbetssättet är ett som profilen godtar. Annonser som inte anger arbetssätt räknas som att de passar |
+
+Bara de delar som profilen fyller i räknas, och summan skalas till 100. Finns ett uteslutet ord i annonsens titel blir värdet 0 oavsett resten. Ord med minst fem tecken hittas även inuti sammansatta ord ("utvecklare" hittar "Backendutvecklare"). Kortare ord måste stå som egna ord, så "java" hittar inte "JavaScript" och "go" hittar inte "Google".
+
+En annons räknas som matchande från `RADAR_MATCH_THRESHOLD` (standard 40). Har användaren en profil sorteras annonslistan efter bästa matchning, både i den platta listan och mellan och inom företagsgrupperna, och *Nyast* sorterar på datum igen. Filtret *Bara matchande* visar antalet som de andra filtren. Varje annons visar sitt värde och vad som matchade, räknat mot profilen som den ser ut just då. Sökningen läser värdena i samma svep som de andra filtren, och sökcachen räknas om när värdena har räknats om.
+
+Profilen är tänkt att senare kunna fyllas i från ett uppladdat CV.

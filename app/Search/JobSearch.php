@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Search;
 
+use App\Matching\MatchScores;
 use App\Models\Board;
 use App\Models\JobPosting;
 use App\Tracking\UserMarks;
@@ -21,6 +22,9 @@ use Illuminate\Support\Facades\DB;
  * a narrow row per matching posting. That is one scan instead of one query
  * per facet, and each facet can ignore its own filter for free. Only the
  * postings that are shown are loaded in full.
+ *
+ * Profile scores (App\Matching) are read from their own table, so matching
+ * and sorting by match stay in the same scan.
  */
 final readonly class JobSearch
 {
@@ -43,10 +47,21 @@ final readonly class JobSearch
     /**
      * @param  list<string>|null  $openEmployers  Groups whose postings are loaded; null loads only the first group.
      * @param  UserMarks|null  $marks  The viewer's marks: hidden postings and employers are left out and unseen ones counted.
+     * @param  MatchScores|null  $matches  The viewer's profile scores: matching postings are counted and can be filtered on.
+     * @param  bool  $byMatch  Best match first, in the list and within and between groups. Needs $matches.
      */
-    public function search(JobFilters $filters, bool $grouped, int $limit, ?array $openEmployers = null, ?UserMarks $marks = null): SearchResult
-    {
-        $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit.':'.($marks?->cacheKey() ?? '-');
+    public function search(
+        JobFilters $filters,
+        bool $grouped,
+        int $limit,
+        ?array $openEmployers = null,
+        ?UserMarks $marks = null,
+        ?MatchScores $matches = null,
+        bool $byMatch = false,
+    ): SearchResult {
+        $byMatch = $byMatch && $matches !== null;
+        $key = 'jobsearch:'.$filters->cacheKey().':'.($grouped ? 'g' : 'f').':'.$limit.':'.($marks?->cacheKey() ?? '-')
+            .':'.($matches?->cacheKey() ?? '-').($byMatch ? ':m' : '');
 
         // Anything cached in an older shape (such as a Facets object) is
         // computed again rather than trusted.
@@ -61,7 +76,7 @@ final readonly class JobSearch
             $collecting = gc_enabled();
             gc_disable();
             try {
-                $summary = $this->summarize($filters, $grouped, $limit, $marks);
+                $summary = $this->summarize($filters, $grouped, $limit, $marks, $matches, $byMatch);
             } finally {
                 if ($collecting) {
                     gc_enable();
@@ -81,6 +96,7 @@ final readonly class JobSearch
             kinds: $facets['kinds'] ?? [],
             notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
             unseen: $facets['unseen'] ?? 0,
+            matching: $facets['matching'] ?? 0,
         );
 
         $open = $openEmployers ?? array_slice(array_column($summary['groups'], 'employer'), 0, 1);
@@ -115,9 +131,9 @@ final readonly class JobSearch
     }
 
     /**
-     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
+     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int, unseen: int, matching: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
-    private function summarize(JobFilters $filters, bool $grouped, int $limit, ?UserMarks $marks): array
+    private function summarize(JobFilters $filters, bool $grouped, int $limit, ?UserMarks $marks, ?MatchScores $matches, bool $byMatch): array
     {
         $now = Carbon::now()->utc();
         $newSince = $now->copy()->subDays($this->newJobDays)->format('Y-m-d H:i:s');
@@ -146,15 +162,19 @@ final readonly class JobSearch
         $hiddenIds = $marks->hiddenIds ?? [];
         $hiddenEmployers = $marks->hiddenEmployers ?? [];
         $seenUntil = $marks?->seenUntil;
+        $scoring = $matches !== null;
+        $scores = $matches?->all() ?? [];
+        $threshold = $matches->threshold ?? 0;
+        $matchingOnly = $filters->matchingOnly && $scoring;
 
         $rows = self::fetchNumeric($this->rows($filters));
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
 
         $countries = $cities = $remotes = $departments = $published = $kinds = [];
-        $newCount = $missingCount = $unseenCount = $total = 0;
-        // Per employer: postings, fully remote postings and row indexes.
-        $employerTotal = $employerRemote = $employerRows = [];
-        // Row index => posted_at, for the flat list.
+        $newCount = $missingCount = $unseenCount = $matchingCount = $total = 0;
+        // Per employer: postings, fully remote postings, best score and row indexes.
+        $employerTotal = $employerRemote = $employerBest = $employerRows = [];
+        // Row index => sort key (score and posted_at, or posted_at), for the flat list.
         $flat = [];
 
         // Local copies: this loop runs once per posting.
@@ -174,6 +194,8 @@ final readonly class JobSearch
             $remote = $remoteOptions[$rowRemote ?? ''] ?? 'unknown';
             $postedAt = $rowPostedAt ?? '';
             $isNew = $firstSeenAt >= $newSince;
+            $score = $scores[$id] ?? 0;
+            $isMatching = $scoring && $score >= $threshold;
 
             // The one active filter this row fails, or null. Rows failing
             // two or more filters count nowhere.
@@ -213,6 +235,10 @@ final readonly class JobSearch
             }
             if ($unseenOnly && ! $isUnseen) {
                 $failed = 'unseen';
+                $failures++;
+            }
+            if ($matchingOnly && ! $isMatching) {
+                $failed = 'matching';
                 $failures++;
             }
 
@@ -256,6 +282,9 @@ final readonly class JobSearch
             if (($failed === null || $failed === 'unseen') && $isUnseen) {
                 $unseenCount++;
             }
+            if (($failed === null || $failed === 'matching') && $isMatching) {
+                $matchingCount++;
+            }
 
             if ($failed !== null) {
                 continue;
@@ -269,9 +298,12 @@ final readonly class JobSearch
                 if ($remote === 'fully') {
                     $employerRemote[$employer] = ($employerRemote[$employer] ?? 0) + 1;
                 }
+                if ($score > ($employerBest[$employer] ?? -1)) {
+                    $employerBest[$employer] = $score;
+                }
                 $employerRows[$employer][] = $index;
             } else {
-                $flat[$index] = $postedAt;
+                $flat[$index] = $byMatch ? self::scoreKey($score).$postedAt : $postedAt;
             }
         }
 
@@ -280,12 +312,13 @@ final readonly class JobSearch
         $hasMore = false;
 
         if ($grouped) {
-            // Largest first, then by name.
-            uksort($employerTotal, static fn (int|string $a, int|string $b): int => [$employerTotal[$b], (string) $a] <=> [$employerTotal[$a], (string) $b]);
+            // Largest first, then by name. By match: best posting first.
+            $best = $byMatch ? $employerBest : [];
+            uksort($employerTotal, static fn (int|string $a, int|string $b): int => [$best[$b] ?? 0, $employerTotal[$b], (string) $a] <=> [$best[$a] ?? 0, $employerTotal[$a], (string) $b]);
             $hasMore = count($employerTotal) > $limit;
 
             foreach (array_slice($employerTotal, 0, $limit, true) as $employer => $count) {
-                $newest = self::newest($rows, $employerRows[$employer], self::POSTINGS_PER_GROUP);
+                $newest = self::newest($rows, $employerRows[$employer], self::POSTINGS_PER_GROUP, $byMatch ? $scores : null);
 
                 $groupCities = [];
                 foreach ($employerRows[$employer] as $index) {
@@ -326,6 +359,7 @@ final readonly class JobSearch
                 'kinds' => $kinds,
                 'notInPlatsbanken' => $missingCount,
                 'unseen' => $unseenCount,
+                'matching' => $matchingCount,
             ],
             'groups' => $groups,
             'ids' => $ids,
@@ -436,21 +470,32 @@ final readonly class JobSearch
 
     /**
      * Ids of the newest postings among the given rows: posted_at, then id.
+     * With scores, the best scores come first.
      *
      * @param  list<array<int, mixed>>  $rows
      * @param  list<int>  $indexes
+     * @param  array<int, int>|null  $scores
      * @return list<int>
      */
-    private static function newest(array $rows, array $indexes, int $count): array
+    private static function newest(array $rows, array $indexes, int $count, ?array $scores = null): array
     {
         $keys = [];
         foreach ($indexes as $index) {
-            $keys[] = $rows[$index][5].str_pad((string) $rows[$index][0], 12, '0', STR_PAD_LEFT);
+            $prefix = $scores === null ? '' : self::scoreKey($scores[$rows[$index][0]] ?? 0);
+            $keys[] = $prefix.$rows[$index][5].str_pad((string) $rows[$index][0], 12, '0', STR_PAD_LEFT);
         }
 
         rsort($keys, SORT_STRING);
 
         return array_map(static fn (string $key): int => (int) substr($key, -12), array_slice($keys, 0, $count));
+    }
+
+    /**
+     * A score (0 to 100) that sorts as a string.
+     */
+    private static function scoreKey(int $score): string
+    {
+        return str_pad((string) $score, 3, '0', STR_PAD_LEFT);
     }
 
     /**
