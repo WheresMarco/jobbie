@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Discovery\Calibration\Calibrator;
 use App\Discovery\JobStream\JobStreamSync;
+use App\Discovery\JobStream\PlatsbankenAdParser;
 use App\Discovery\Sources\CommonCrawlSource;
 use App\Discovery\Sources\HttpArchiveSource;
 use App\Discovery\Sources\PrefixSource;
@@ -21,8 +22,9 @@ use App\Net\DomainName;
 use App\Net\PublicSuffixList;
 use App\Net\StreamCertificateFetcher;
 use App\Net\SystemDnsResolver;
-use App\Scraping\FeedClient;
-use App\Scraping\RssEnricher;
+use App\Scraping\PostingStore;
+use App\Scraping\Teamtailor\FeedClient;
+use App\Scraping\Teamtailor\RssEnricher;
 use App\Search\JobSearch;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Gate;
@@ -104,6 +106,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(JobStreamSync::class, static fn (Application $app): JobStreamSync => new JobStreamSync(
             domains: $app->make(DomainName::class),
+            postings: $app->make(PostingStore::class),
+            parser: $app->make(PlatsbankenAdParser::class),
             baseUrl: config()->string('radar.jobstream.base_url'),
             apiKey: is_string(config('radar.jobstream.api_key')) ? config('radar.jobstream.api_key') : null,
             userAgent: config()->string('radar.user_agent'),

@@ -108,8 +108,9 @@ final readonly class BoardResolver
     }
 
     /**
-     * Merge boards whose active postings are exactly the same set of feed
-     * ids (at least MIN_SHARED_POSTINGS). Returns the board that is kept.
+     * Merge boards on the same platform whose active postings are exactly
+     * the same set of feed ids (at least MIN_SHARED_POSTINGS). Returns the
+     * board that is kept.
      */
     public function mergeDuplicates(Board $board): Board
     {
@@ -122,6 +123,7 @@ final readonly class BoardResolver
         $candidates = JobPosting::query()
             ->where('active', true)
             ->where('board_id', '!=', $board->id)
+            ->whereIn('board_id', Board::query()->where('platform', $board->platform)->select('id'))
             ->whereIn('feed_id', $feedIds)
             ->groupBy('board_id')
             ->havingRaw('count(*) = ?', [$count])

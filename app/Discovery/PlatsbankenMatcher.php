@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Discovery;
 
 use App\Discovery\JobStream\JobStreamSync;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Models\Domain;
@@ -23,6 +24,10 @@ use Illuminate\Support\Facades\DB;
  * 2. Organisation number and title: the board's organisation number (from
  *    ads matched in step 1, or from the domains table) and the same
  *    normalised title.
+ *
+ * Postings on the Platsbanken board itself are not matched. Instead, those
+ * whose ad an employer's own posting covers are marked as duplicates and
+ * left out of the job list.
  */
 final readonly class PlatsbankenMatcher
 {
@@ -48,7 +53,9 @@ final readonly class PlatsbankenMatcher
         $unmatched = [];
         $active = 0;
 
-        foreach (JobPosting::query()->where('active', true)->select('id', 'board_id', 'url', 'title')->lazyById(2000) as $posting) {
+        $employerBoards = Board::query()->where('platform', '!=', Platform::Platsbanken)->select('id');
+
+        foreach (JobPosting::query()->where('active', true)->whereIn('board_id', $employerBoards)->select('id', 'board_id', 'url', 'title')->lazyById(2000) as $posting) {
             $active++;
             $adId = null;
             if (preg_match(self::JOB_ID, (string) parse_url($posting->url, PHP_URL_PATH), $m) === 1) {
@@ -176,6 +183,12 @@ final readonly class PlatsbankenMatcher
                     'platsbanken_ad_id' => $adId,
                     'platsbanken_match' => $method,
                 ]);
+            }
+
+            $platsbanken = Board::query()->where('platform', Platform::Platsbanken)->select('id');
+            JobPosting::query()->whereIn('board_id', $platsbanken)->where('duplicate', true)->update(['duplicate' => false]);
+            foreach (array_chunk(array_values(array_unique(array_column($matches, 0))), 1000) as $adIds) {
+                JobPosting::query()->whereIn('board_id', $platsbanken)->whereIn('feed_id', $adIds)->update(['duplicate' => true]);
             }
         });
     }

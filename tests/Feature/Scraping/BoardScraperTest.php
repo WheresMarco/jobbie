@@ -209,8 +209,8 @@ it('follows a slug that redirects to a custom domain for paging and RSS', functi
 
     $result = scrape($slug);
 
-    expect($result->feed?->finalHost())->toBe('career.kry.se')
-        ->and($result->feed?->homePageUrl)->toBe('https://career.kry.se/')
+    expect($result->listing?->finalHost)->toBe('career.kry.se')
+        ->and($result->listing?->homeUrl)->toBe('https://career.kry.se/')
         ->and($result->jobCount)->toBe(150)
         ->and(JobPosting::query()->where('feed_id', '1149')->value('department'))->toBe('Vård');
 

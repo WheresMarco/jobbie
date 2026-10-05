@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Scraping\FeedClient;
 use App\Scraping\FeedException;
+use App\Scraping\Teamtailor\FeedClient;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\TeamtailorFeed;

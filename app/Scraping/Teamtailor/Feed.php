@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Scraping;
+namespace App\Scraping\Teamtailor;
 
 /**
  * All items read from a board's jobs.json.

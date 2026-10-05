@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
 use App\Enums\RemoteStatus;
+use App\Scraping\PostingStore;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -105,6 +106,8 @@ class DemoSeeder extends Seeder
                     : self::WORDS[(int) floor(count(self::WORDS) * (mt_rand() / mt_getrandmax()) ** 3)];
             }
 
+            $countries = array_values(array_unique(array_column($places, 1)));
+
             $postings[] = [
                 'board_id' => $boardId,
                 'feed_id' => (string) (1_000_000 + $i),
@@ -112,7 +115,8 @@ class DemoSeeder extends Seeder
                 'url' => "https://example.se/jobs/{$i}",
                 'company' => mt_rand(0, 4) === 0 ? 'Kund '.mt_rand(1, 400).' AB' : "Företag {$boardId} AB",
                 'cities' => json_encode(array_column($places, 0), JSON_UNESCAPED_UNICODE),
-                'countries' => json_encode(array_values(array_unique(array_column($places, 1)))),
+                'countries' => json_encode($countries),
+                'in_sweden' => PostingStore::inSweden($countries),
                 'remote' => $remote?->value,
                 'department' => mt_rand(0, 3) === 0 ? null : self::DEPARTMENTS[mt_rand(0, count(self::DEPARTMENTS) - 1)],
                 'employment_type' => 'FULL_TIME',

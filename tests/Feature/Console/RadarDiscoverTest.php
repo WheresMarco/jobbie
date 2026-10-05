@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Discovery\JobStream\JobStreamSync;
 use App\Enums\CandidateSourceType;
+use App\Enums\Platform;
 use App\Enums\Strength;
 use App\Jobs\CollectCandidates;
 use App\Jobs\QueueVerification;
@@ -148,6 +149,46 @@ it('syncs a JobStream snapshot, then only changes', function (): void {
 
     // Stream asks for changes since the previous run, in Swedish time, one minute early.
     Http::assertSent(fn (Request $r): bool => str_contains($r->url(), 'jobstream.test/stream?date=2026-09-26T11%3A59%3A00'));
+
+    // Every ad is also a posting on the Platsbanken board; removals close them.
+    $board = JobStreamSync::board();
+    expect($board->platform)->toBe(Platform::Platsbanken)
+        ->and($board->kind)->toBeNull()
+        ->and($board->job_count)->toBe(4)
+        ->and($board->jobPostings()->where('active', true)->orderBy('feed_id')->pluck('feed_id')->all())->toBe(['2', '3', '4', '5'])
+        ->and($board->jobPostings()->where('feed_id', '1')->firstOrFail())
+        ->active->toBeFalse()
+        ->title->toBe('Sjuksköterska  1')
+        ->company->toBe('Kry International AB')
+        ->org_nr->toBe('5569869383')
+        ->url->toBe('https://arbetsformedlingen.se/platsbanken/annonser/1');
+});
+
+it('closes Platsbanken postings that a new snapshot no longer has', function (): void {
+    Carbon::setTestNow('2026-09-26 10:00:00');
+    config(['radar.jobstream.base_url' => 'https://jobstream.test']);
+    Http::fakeSequence('jobstream.test/snapshot')
+        ->push(json_encode([platsbankenAd('1'), platsbankenAd('2')]))
+        ->push(json_encode([platsbankenAd('2')]));
+
+    app(JobStreamSync::class)->sync();
+
+    // A cursor older than the stream keeps removals for means a new snapshot.
+    Carbon::setTestNow('2027-01-01 10:00:00');
+    app(JobStreamSync::class)->sync();
+
+    expect(JobStreamSync::board()->jobPostings()->pluck('active', 'feed_id')->all())->toBe(['1' => false, '2' => true])
+        ->and(JobStreamSync::board()->job_count)->toBe(1);
+});
+
+it('leaves the Platsbanken board out of radar:scrape', function (): void {
+    Bus::fake();
+    JobStreamSync::board();
+    Board::factory()->custom('career.kry.se')->create();
+
+    $this->artisan('radar:scrape', ['--no-wait' => true])->assertSuccessful();
+
+    Bus::assertBatched(fn ($batch): bool => collect($batch->jobs)->map(fn ($job) => $job->board->canonical_host)->all() === ['career.kry.se']);
 });
 
 it('queues the sources as one chain, JobStream sync first', function (): void {

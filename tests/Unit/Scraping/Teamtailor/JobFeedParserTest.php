@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\RemoteStatus;
 use App\Scraping\CountryCode;
-use App\Scraping\JobFeedParser;
 use App\Scraping\JobLocation;
-use App\Scraping\RssEnrichment;
+use App\Scraping\Teamtailor\JobFeedParser;
+use App\Scraping\Teamtailor\RssEnrichment;
 use Tests\Support\TeamtailorFeed;
 
 function fullItem(): array

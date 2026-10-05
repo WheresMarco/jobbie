@@ -11,7 +11,7 @@ use App\Enums\Strength;
 use App\Models\Board;
 use App\Models\Candidate;
 use App\Net\DomainName;
-use App\Scraping\Feed;
+use App\Scraping\Listing;
 use Illuminate\Support\Carbon;
 
 /**
@@ -31,14 +31,14 @@ final readonly class RedirectSource
     /**
      * @return Board The board after any re-canonicalisation or merge.
      */
-    public function record(Board $board, Feed $feed): Board
+    public function record(Board $board, Listing $listing): Board
     {
         $previousHost = $board->canonical_host;
-        $board = $this->boards->resolve($board->canonical_host, $feed->finalHost() ?: null, $feed->homePageUrl, $feed->title);
+        $board = $this->boards->resolve($board->canonical_host, $listing->finalHost, $listing->homeUrl, $listing->name);
 
         $hosts = array_filter([
-            $feed->finalHost(),
-            $feed->homePageUrl === null ? null : $this->domains->normalize($feed->homePageUrl),
+            $listing->finalHost,
+            $listing->homeUrl === null ? null : $this->domains->normalize($listing->homeUrl),
         ], static fn (?string $h): bool => $h !== null && $h !== '' && $h !== $previousHost);
 
         if ($hosts !== []) {

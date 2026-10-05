@@ -64,7 +64,7 @@ Kandidater (möjliga karriärsidor) och verifierade karriärsidor ligger i separ
 | Källa | Styrka | Hur |
 | --- | --- | --- |
 | A, omdirigeringar | stark | Vid varje skrapning sparas slutvärden för `jobs.json` och värden i flödets `home_page_url` som alias. Inga extra anrop |
-| B, Platsbanken | stark | JobTech JobStream: först `/snapshot` (cirka 300 MB, läses strömmande från disk), sedan bara ändringar via `/stream?date=`. Ansökningslänkar med sökvägen `/jobs/<siffror>-` eller värd under `teamtailor.com` blir kandidater. Arbetsgivarens webbadress blir en basdomän för källa C. Annonserna sparas i `platsbanken_ads` |
+| B, Platsbanken | stark | JobTech JobStream: först `/snapshot` (cirka 300 MB, läses strömmande från disk), sedan bara ändringar via `/stream?date=`. Ansökningslänkar med sökvägen `/jobs/<siffror>-` eller värd under `teamtailor.com` blir kandidater. Arbetsgivarens webbadress blir en basdomän för källa C. Annonserna sparas i `platsbanken_ads` och som annonser på Platsbankens karriärsida (se Platsbanken som källa) |
 | C, prefix | svag | Varje prefix i `config/radar.php` provas mot alla kända basdomäner och mot registrerbara domäner för kända egna domäner. Prefixet sparas i `source_ref` så att träffar kan räknas per prefix |
 | D, Common Crawl | stark | Alla `*.teamtailor.com` i de senaste indexen (`RADAR_COMMONCRAWL_INDEXES`, standard tre) via CDX-API:t, sida för sida med en sekunds paus |
 | E, TXT | stark | TXT-posterna på varje känd basdomän läses. En Teamtailor-verifieringspost (`teamtailor=<32 hextecken>`) markerar domänen som kund, och en utökad prefixlista (`txt_prefixes`) provas under den. Domäner kontrolleras om efter `RADAR_TXT_RECHECK_DAYS` dagar. Kunder där ingen sida hittas syns på statistiksidan |
@@ -92,7 +92,11 @@ Karriärsidor skapas bara via `BoardResolver`. Kanonisk värd är värden i flö
 
 ## Skrapning
 
-Varje karriärsida skrapas av köjobbet `ScrapeBoard`. Det är unikt per karriärsida och gör högst en förfrågan åt gången mot samma värd.
+Varje karriärsida tillhör en plattform (kolumnen `platform` i `boards`). Hittills finns bara `teamtailor`. Plattformens adapter (`App\Scraping\Contracts\PlatformAdapter`, kopplad i `PlatformAdapters`) hämtar annonserna, medan `BoardScraper` sparar dem på samma sätt för alla plattformar. Teamtailors klasser ligger i `App\Scraping\Teamtailor`.
+
+Varje karriärsida skrapas av köjobbet `ScrapeBoard`. Det är unikt per karriärsida och kör högst en skrapning åt gången per nyckel från adaptern. För Teamtailor är nyckeln värden. En plattform där alla kunder delar en värd ska ge samma nyckel för alla sina karriärsidor.
+
+För Teamtailor gäller:
 
 1. `jobs.json` hämtas sida för sida (`?page=N`, 100 poster per sida) tills en sida har färre än 100 poster. Om en full sida inte ger några nya id, om en senare sida inte går att läsa eller om gränsen på 100 sidor nås, räknas läsningen som trunkerad.
 2. `jobs.rss` hämtas med `?offset=N` för avdelning och distansstatus. Fel här loggas men stoppar aldrig skrapningen.
@@ -139,7 +143,15 @@ Premissen är att annonserna på Teamtailor-sidorna inte syns någon annanstans.
 1. **Ansökningslänk.** Platsbanken-annonsen länkar till samma Teamtailor-jobb, med jobb-id i sökvägen (`/jobs/<id>-...`) oavsett värd, eller till samma värd och sökväg.
 2. **Organisationsnummer och titel.** Karriärsidans organisationsnummer tas från annonser som matchade i steg 1, eller från `domains` via registrerbar domän. Därefter krävs samma normaliserade titel.
 
-Matchade annonser får märket "Finns även i Platsbanken", gränssnittet har filtret "Bara annonser som saknas i Platsbanken", och andelen syns på statistiksidan.
+Matchade annonser får märket "Finns även i Platsbanken" och andelen syns på statistiksidan. Annonserna på Platsbankens egen karriärsida matchas inte. I stället markeras de Platsbanken-annonser som arbetsgivarens egen annons redan täcker som dubbletter (`duplicate`), och de visas inte i listan.
+
+## Platsbanken som källa
+
+Varje JobStream-körning sparar också alla annonser som vanliga annonser på en enda karriärsida med plattformen `platsbanken` (värd `arbetsformedlingen.se`, ingen `kind`). Arbetsgivaren blir annonsens företag, organisationsnumret sparas i `org_nr` och orten tas från kommunen i arbetsplatsadressen. Borttagna annonser i strömmen inaktiveras, och efter en ny `/snapshot` inaktiveras de annonser som inte fanns med. Karriärsidan skrapas aldrig av `radar:scrape`.
+
+## Bara jobb i Sverige
+
+Listan och antalet osedda visar bara annonser med minst en ort i Sverige, eller utan ort alls (vanligt för distansjobb). Annonser vars alla orter ligger utomlands sparas och skrapas som vanligt men visas inte. Flaggan `in_sweden` sätts när annonsen sparas.
 
 ## Köer och första körningen
 

@@ -21,6 +21,11 @@ use Illuminate\Support\Facades\DB;
  * a narrow row per matching posting. That is one scan instead of one query
  * per facet, and each facet can ignore its own filter for free. Only the
  * postings that are shown are loaded in full.
+ *
+ * Only jobs located in Sweden are listed (in_sweden, see PostingStore):
+ * postings without any location are kept, since remote jobs often have
+ * none. Platsbanken ads that an employer's own posting covers (duplicate)
+ * are left out too.
  */
 final readonly class JobSearch
 {
@@ -79,7 +84,6 @@ final readonly class JobSearch
             published: $facets['published'] ?? [],
             new: $facets['new'] ?? 0,
             kinds: $facets['kinds'] ?? [],
-            notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
             unseen: $facets['unseen'] ?? 0,
         );
 
@@ -115,7 +119,7 @@ final readonly class JobSearch
     }
 
     /**
-     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
+     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
     private function summarize(JobFilters $filters, bool $grouped, int $limit, ?UserMarks $marks): array
     {
@@ -139,7 +143,6 @@ final readonly class JobSearch
         $department = $filters->department;
         $newOnly = $filters->newOnly;
         $kind = $filters->kind?->value;
-        $notInPlatsbanken = $filters->notInPlatsbanken;
         $unseenOnly = $filters->unseenOnly && $marks !== null;
         $tracking = $marks !== null;
         $statuses = $marks->statuses ?? [];
@@ -151,7 +154,7 @@ final readonly class JobSearch
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
 
         $countries = $cities = $remotes = $departments = $published = $kinds = [];
-        $newCount = $missingCount = $unseenCount = $total = 0;
+        $newCount = $unseenCount = $total = 0;
         // Per employer: postings, fully remote postings and row indexes.
         $employerTotal = $employerRemote = $employerRows = [];
         // Row index => posted_at, for the flat list.
@@ -160,7 +163,7 @@ final readonly class JobSearch
         // Local copies: this loop runs once per posting.
         $remoteOptions = self::REMOTE_OPTIONS;
 
-        foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt, $inPlatsbanken]) {
+        foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt]) {
             // Hidden postings and employers count nowhere.
             if (isset($hiddenIds[$id]) || ($hiddenEmployers !== [] && isset($hiddenEmployers[$company ?? ($boardName[$boardId] ?? '')]))) {
                 continue;
@@ -207,10 +210,6 @@ final readonly class JobSearch
                 $failed = 'kind';
                 $failures++;
             }
-            if ($notInPlatsbanken && $inPlatsbanken) {
-                $failed = 'platsbanken';
-                $failures++;
-            }
             if ($unseenOnly && ! $isUnseen) {
                 $failed = 'unseen';
                 $failures++;
@@ -249,9 +248,6 @@ final readonly class JobSearch
             }
             if ($failed === null || $failed === 'kind') {
                 $kinds[$rowKind] = ($kinds[$rowKind] ?? 0) + 1;
-            }
-            if (($failed === null || $failed === 'platsbanken') && ! $inPlatsbanken) {
-                $missingCount++;
             }
             if (($failed === null || $failed === 'unseen') && $isUnseen) {
                 $unseenCount++;
@@ -324,7 +320,6 @@ final readonly class JobSearch
                 'published' => $publishedCounts,
                 'new' => $newCount,
                 'kinds' => $kinds,
-                'notInPlatsbanken' => $missingCount,
                 'unseen' => $unseenCount,
             ],
             'groups' => $groups,
@@ -389,10 +384,11 @@ final readonly class JobSearch
     {
         $query = DB::table('job_postings')
             ->where('job_postings.active', true)
+            ->where('job_postings.duplicate', false)
+            ->where('job_postings.in_sweden', true)
             ->select([
                 'job_postings.id', 'job_postings.board_id', 'job_postings.company', 'job_postings.remote',
                 'job_postings.department', 'job_postings.posted_at', 'job_postings.first_seen_at',
-                'job_postings.in_platsbanken',
             ])
         ;
 

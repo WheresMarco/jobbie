@@ -122,7 +122,7 @@ final class PostingTracker
     }
 
     /**
-     * Active postings the user has not seen.
+     * Listed postings (as in JobSearch) the user has not seen.
      */
     public function unseenCount(User $user): int
     {
@@ -132,6 +132,8 @@ final class PostingTracker
         // Postings from hidden employers do not count, whether seen or not.
         $visible = static function (Builder $query) use ($since, $hidden): void {
             $query->where('job_postings.active', true)
+                ->where('job_postings.duplicate', false)
+                ->where('job_postings.in_sweden', true)
                 ->when($since, fn (Builder $q, Carbon $since) => $q->where('job_postings.first_seen_at', '>', $since))
                 ->when($hidden !== [], fn (Builder $q) => $q
                     ->leftJoin('boards', 'boards.id', '=', 'job_postings.board_id')

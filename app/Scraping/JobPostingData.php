@@ -27,6 +27,7 @@ final readonly class JobPostingData
         public ?string $salaryText,
         public ?CarbonImmutable $postedAt,
         public ?string $description,
+        public ?string $orgNr = null,
     ) {
     }
 
@@ -44,6 +45,18 @@ final readonly class JobPostingData
     public function countries(): array
     {
         return self::unique(array_map(static fn (JobLocation $l): ?string => $l->country, $this->locations));
+    }
+
+    /**
+     * A JSON list of strings as stored in job_postings.cities and countries.
+     *
+     * @return list<string>
+     */
+    public static function decodeList(string $json): array
+    {
+        $values = json_decode($json, true);
+
+        return is_array($values) ? self::unique(array_map(static fn (mixed $v): ?string => is_string($v) ? $v : null, array_values($values))) : [];
     }
 
     /**

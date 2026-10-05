@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Models\Board;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -22,6 +23,7 @@ class BoardFactory extends Factory
 
         return [
             'canonical_host' => "{$slug}.teamtailor.com",
+            'platform' => Platform::Teamtailor,
             'tt_slug' => $slug,
             'kind' => BoardKind::TtSubdomain,
             'status' => BoardStatus::New,
