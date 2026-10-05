@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Scraping;
+namespace App\Scraping\Teamtailor;
 
 use App\Enums\RemoteStatus;
+use App\Scraping\CountryCode;
+use App\Scraping\JobLocation;
+use App\Scraping\JobPostingData;
 use Carbon\CarbonImmutable;
 use Throwable;
 

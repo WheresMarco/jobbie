@@ -6,6 +6,7 @@ use App\Enums\BoardAliasRelation;
 use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
 use App\Enums\CandidateStage;
+use App\Enums\Platform;
 use App\Enums\RemoteStatus;
 use App\Enums\Strength;
 use App\Models\Board;
@@ -27,7 +28,7 @@ it('creates boards with enum casts and relations', function (): void {
 
     expect($board->kind)->toBe(BoardKind::Custom)
         ->and($board->status)->toBe(BoardStatus::Active)
-        ->and($board->feedUrl())->toBe('https://career.kry.se/jobs.json')
+        ->and($board->platform)->toBe(Platform::Teamtailor)
         ->and($board->aliases->first()?->relation)->toBe(BoardAliasRelation::Redirect)
         ->and($board->jobPostings)->toHaveCount(2);
 });
@@ -36,7 +37,8 @@ it('defaults new boards to status new', function (): void {
     $board = Board::query()->create(['canonical_host' => 'jobs.example.se', 'kind' => BoardKind::Custom]);
 
     expect($board->refresh()->status)->toBe(BoardStatus::New)
-        ->and($board->job_count)->toBe(0);
+        ->and($board->job_count)->toBe(0)
+        ->and($board->platform)->toBe(Platform::Teamtailor);
 });
 
 it('keeps canonical hosts unique', function (): void {

@@ -92,7 +92,11 @@ Karriärsidor skapas bara via `BoardResolver`. Kanonisk värd är värden i flö
 
 ## Skrapning
 
-Varje karriärsida skrapas av köjobbet `ScrapeBoard`. Det är unikt per karriärsida och gör högst en förfrågan åt gången mot samma värd.
+Varje karriärsida tillhör en plattform (kolumnen `platform` i `boards`). Hittills finns bara `teamtailor`. Plattformens adapter (`App\Scraping\Contracts\PlatformAdapter`, kopplad i `PlatformAdapters`) hämtar annonserna, medan `BoardScraper` sparar dem på samma sätt för alla plattformar. Teamtailors klasser ligger i `App\Scraping\Teamtailor`.
+
+Varje karriärsida skrapas av köjobbet `ScrapeBoard`. Det är unikt per karriärsida och kör högst en skrapning åt gången per nyckel från adaptern. För Teamtailor är nyckeln värden. En plattform där alla kunder delar en värd ska ge samma nyckel för alla sina karriärsidor.
+
+För Teamtailor gäller:
 
 1. `jobs.json` hämtas sida för sida (`?page=N`, 100 poster per sida) tills en sida har färre än 100 poster. Om en full sida inte ger några nya id, om en senare sida inte går att läsa eller om gränsen på 100 sidor nås, räknas läsningen som trunkerad.
 2. `jobs.rss` hämtas med `?offset=N` för avdelning och distansstatus. Fel här loggas men stoppar aldrig skrapningen.

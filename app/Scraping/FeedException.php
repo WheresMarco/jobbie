@@ -9,7 +9,7 @@ use RuntimeException;
 final class FeedException extends RuntimeException
 {
     /**
-     * @param  bool  $dead  True when the site is gone or is not a Teamtailor feed (404, 410, HTML).
+     * @param  bool  $dead  True when the board is gone or does not serve job postings (404, 410, HTML).
      */
     public function __construct(string $message, public readonly bool $dead)
     {

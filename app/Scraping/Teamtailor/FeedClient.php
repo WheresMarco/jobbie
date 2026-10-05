@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Scraping;
+namespace App\Scraping\Teamtailor;
 
+use App\Scraping\FeedException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;

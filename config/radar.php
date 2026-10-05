@@ -7,7 +7,7 @@ return [
     /*
     | HTTP client settings shared by discovery, verification and scraping.
     */
-    'user_agent' => env('RADAR_USER_AGENT', 'TeamtailorRadar/0.1 (+https://github.com/wheresmarco/jobbie)'),
+    'user_agent' => env('RADAR_USER_AGENT', 'Jobbie/0.1 (+https://github.com/wheresmarco/jobbie)'),
     'http_timeout' => (int) env('RADAR_HTTP_TIMEOUT', 15),
     'http_pool_size' => (int) env('RADAR_HTTP_POOL_SIZE', 10),
 

@@ -14,7 +14,7 @@ final readonly class ScrapeResult
         public int $deactivated = 0,
         public bool $truncated = false,
         public ?string $error = null,
-        public ?Feed $feed = null,
+        public ?Listing $listing = null,
     ) {
     }
 }

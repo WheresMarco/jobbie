@@ -8,9 +8,9 @@ use App\Console\Concerns\Translates;
 use App\Discovery\Verifier;
 use App\Enums\CandidateStage;
 use App\Enums\Strength;
-use App\Scraping\FeedClient;
 use App\Scraping\FeedException;
-use App\Scraping\RssEnricher;
+use App\Scraping\Teamtailor\FeedClient;
+use App\Scraping\Teamtailor\RssEnricher;
 use Illuminate\Console\Command;
 
 /**

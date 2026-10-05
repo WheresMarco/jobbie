@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Models\Board;
 use App\Scraping\BoardScraper;
+use App\Scraping\PlatformAdapters;
 use DateTimeInterface;
 use Illuminate\Bus\Batchable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -34,14 +35,17 @@ final class ScrapeBoard implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * At most one request at a time per host.
+     * At most one scrape at a time per concurrency key: per host for
+     * Teamtailor, per platform for platforms on a shared host.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
+        $key = app(PlatformAdapters::class)->for($this->board->platform)->concurrencyKey($this->board);
+
         return [
-            (new WithoutOverlapping('host:'.$this->board->canonical_host))
+            (new WithoutOverlapping($key))
                 ->releaseAfter(30)
                 ->expireAfter(900),
         ];

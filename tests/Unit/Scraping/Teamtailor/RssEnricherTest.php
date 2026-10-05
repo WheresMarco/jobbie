@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\RemoteStatus;
-use App\Scraping\RssEnricher;
+use App\Scraping\Teamtailor\RssEnricher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

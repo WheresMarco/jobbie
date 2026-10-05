@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Scraping;
 
-use App\Discovery\Sources\RedirectSource;
 use App\Enums\BoardStatus;
 use App\Models\Board;
 use App\Models\JobPosting;
@@ -13,47 +12,37 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Scrapes one board and stores its postings. Safe to run repeatedly and to
- * interrupt: postings are upserted and only deactivated after a complete read.
+ * Scrapes one board through its platform's adapter and stores its postings.
+ * Safe to run repeatedly and to interrupt: postings are upserted and only
+ * deactivated after a complete read.
  */
 final readonly class BoardScraper
 {
     private const int CHUNK = 500;
 
-    public function __construct(
-        private FeedClient $feeds,
-        private RssEnricher $rss,
-        private JobFeedParser $parser,
-        private RedirectSource $redirects,
-    ) {
+    public function __construct(private PlatformAdapters $adapters)
+    {
     }
 
     public function scrape(Board $board): ScrapeResult
     {
         $now = Carbon::now();
 
+        $adapter = $this->adapters->for($board->platform);
+
         try {
-            $feed = $this->feeds->fetch($board->canonical_host);
+            $listing = $adapter->fetch($board);
         } catch (FeedException $e) {
             return $e->dead ? $this->markDead($board, $e->getMessage(), $now) : $this->markError($board, $e->getMessage(), $now);
         }
 
-        $enrichments = $this->rss->fetch($feed->finalHost() ?: $board->canonical_host);
+        $postings = $listing->postings;
 
-        /** @var array<string, JobPostingData> $postings */
-        $postings = [];
-        foreach ($feed->items as $item) {
-            $data = $this->parser->parse($item, $enrichments[(string) ($item['id'] ?? '')] ?? null, $feed->title);
-            if ($data !== null) {
-                $postings[$data->feedId] = $data;
-            }
-        }
-
-        $deactivated = DB::transaction(function () use ($board, $feed, $postings, $now): int {
+        $deactivated = DB::transaction(function () use ($board, $listing, $postings, $now): int {
             $this->upsert($board, $postings, $now);
 
             $deactivated = 0;
-            if (! $feed->truncated) {
+            if (! $listing->truncated) {
                 $deactivated = $board->jobPostings()
                     ->where('active', true)
                     ->whereNotIn('feed_id', array_map(strval(...), array_keys($postings)))
@@ -65,8 +54,8 @@ final readonly class BoardScraper
             $board->forceFill([
                 'status' => $jobCount > 0 ? BoardStatus::Active : BoardStatus::Empty,
                 'job_count' => $jobCount,
-                'name' => $feed->title ?? $board->name,
-                'home_url' => $feed->homePageUrl ?? $board->home_url,
+                'name' => $listing->name ?? $board->name,
+                'home_url' => $listing->homeUrl ?? $board->home_url,
                 'checked_at' => $now,
                 'error' => null,
             ])->save();
@@ -78,12 +67,11 @@ final readonly class BoardScraper
             status: $board->status,
             jobCount: $board->job_count,
             deactivated: $deactivated,
-            truncated: $feed->truncated,
-            feed: $feed,
+            truncated: $listing->truncated,
+            listing: $listing,
         );
 
-        // Source A: record where the feed lives and merge duplicate boards.
-        $this->redirects->record($board, $feed);
+        $adapter->scraped($board, $listing);
 
         return $result;
     }
@@ -145,7 +133,7 @@ final readonly class BoardScraper
     }
 
     /**
-     * The site is gone or is no longer a Teamtailor feed: its ads are closed.
+     * The site is gone or no longer serves job postings: its ads are closed.
      */
     private function markDead(Board $board, string $error, Carbon $now): ScrapeResult
     {
