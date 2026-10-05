@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Discovery\JobStream\JobStreamSync;
 use App\Livewire\JobBrowser;
 use App\Livewire\StatsPage;
 use App\Models\Board;
@@ -70,16 +71,32 @@ it('clears matches that no longer hold', function (): void {
     expect(JobPosting::query()->where('in_platsbanken', true)->count())->toBe(0);
 });
 
-it('marks and filters postings in the job browser and shows the share', function (): void {
+it('marks postings in the job browser, hides covered Platsbanken ads and shows the share', function (): void {
+    $platsbanken = JobStreamSync::board();
+    // a1 is covered by Kry's own posting 1; a6 is only in Platsbanken.
+    JobPosting::factory()->for($platsbanken)->create(['feed_id' => 'a1', 'title' => 'Läkare Platsbanken']);
+    JobPosting::factory()->for($platsbanken)->create(['feed_id' => 'a6', 'title' => 'Undersköterska']);
+
     $this->artisan('radar:match-platsbanken')->assertSuccessful();
+
+    expect(JobPosting::query()->where('board_id', $platsbanken->id)->pluck('duplicate', 'feed_id')->all())->toBe(['a1' => true, 'a6' => false]);
 
     Livewire::test(JobBrowser::class)
         ->set('view', 'flat')
         ->assertSee('Finns även i Platsbanken')
-        ->assertViewHas('facets', fn ($f): bool => $f->notInPlatsbanken === 1)
-        ->set('missing', true)
-        ->assertViewHas('postings', fn (array $p): bool => array_map(fn ($x) => $x->feed_id, $p) === ['3']);
+        ->assertViewHas('postings', fn (array $p): bool => collect($p)->pluck('feed_id')->sort()->values()->all() === ['1', '2', '3', '4', '5', 'a6']);
 
     expect(app(RadarStats::class)->platsbankenOverlap())->toBe(['active' => 5, 'matched' => 4, 'apply_url' => 2, 'org_title' => 2]);
     Livewire::test(StatsPage::class)->assertSeeHtml('80,0 %');
+});
+
+it('clears duplicate marks when the employer posting no longer matches', function (): void {
+    $platsbanken = JobStreamSync::board();
+    JobPosting::factory()->for($platsbanken)->create(['feed_id' => 'a1']);
+    $this->artisan('radar:match-platsbanken')->assertSuccessful();
+
+    PlatsbankenAd::query()->update(['removed_at' => now()]);
+    $this->artisan('radar:match-platsbanken')->assertSuccessful();
+
+    expect(JobPosting::query()->where('duplicate', true)->count())->toBe(0);
 });

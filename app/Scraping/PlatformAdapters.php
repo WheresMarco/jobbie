@@ -8,9 +8,10 @@ use App\Enums\Platform;
 use App\Scraping\Contracts\PlatformAdapter;
 use App\Scraping\Teamtailor\TeamtailorAdapter;
 use Illuminate\Contracts\Container\Container;
+use InvalidArgumentException;
 
 /**
- * Maps each platform to its adapter.
+ * Maps each scraped platform to its adapter.
  */
 final readonly class PlatformAdapters
 {
@@ -25,6 +26,8 @@ final readonly class PlatformAdapters
 
     public function for(Platform $platform): PlatformAdapter
     {
-        return $this->container->make(self::ADAPTERS[$platform->value]);
+        $class = self::ADAPTERS[$platform->value] ?? throw new InvalidArgumentException("Platform {$platform->value} is not scraped");
+
+        return $this->container->make($class);
     }
 }

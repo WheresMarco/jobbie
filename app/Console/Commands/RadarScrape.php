@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Concerns\FollowsBatches;
 use App\Console\Concerns\Translates;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Jobs\ScrapeBoard;
 use App\Models\Board;
 use App\Models\BoardAlias;
@@ -58,7 +59,8 @@ final class RadarScrape extends Command
      */
     private function boards(DomainName $domains): Builder
     {
-        $query = Board::query()->orderBy('id');
+        // Platsbanken is synced from JobStream, not scraped.
+        $query = Board::query()->whereIn('platform', Platform::scrapedValues())->orderBy('id');
 
         /** @var list<string> $hostOption */
         $hostOption = (array) $this->option('host');

@@ -102,7 +102,6 @@ return [
         'any_time' => 'Any time',
         'within_days' => '{1} Last 24 hours|[2,*] Last :days days',
         'new' => 'Discovered in the last :days days',
-        'not_in_platsbanken' => 'Only postings missing from Platsbanken',
         'kind' => 'Career site',
         'unseen' => 'Unseen only',
     ],

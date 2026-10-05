@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Discovery\JobStream\JobStreamSync;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\Candidate;
 use App\Models\JobPosting;
@@ -44,9 +46,11 @@ it('finds, verifies and scrapes career sites from Platsbanken', function (): voi
     $this->artisan('radar:verify')->assertSuccessful();
     $this->artisan('radar:scrape')->assertSuccessful();
 
-    // One board for the Teamtailor site, reachable from both hosts.
-    expect(Board::query()->count())->toBe(1);
-    $board = Board::query()->with('aliases')->firstOrFail();
+    // One board for the Teamtailor site, reachable from both hosts, and
+    // the Platsbanken board with the three ads from JobStream.
+    expect(Board::query()->where('platform', Platform::Teamtailor)->count())->toBe(1)
+        ->and(JobStreamSync::board()->job_count)->toBe(3);
+    $board = Board::query()->where('platform', Platform::Teamtailor)->with('aliases')->firstOrFail();
     expect($board->canonical_host)->toBe('career.kry.se')
         ->and($board->status)->toBe(BoardStatus::Active)
         ->and($board->job_count)->toBe(120)
@@ -61,7 +65,7 @@ it('finds, verifies and scrapes career sites from Platsbanken', function (): voi
         'jobb.kry.se' => 'no_dns',
     ]);
 
-    expect(JobPosting::query()->where('active', true)->count())->toBe(120)
+    expect($board->jobPostings()->where('active', true)->count())->toBe(120)
         ->and(JobPosting::query()->where('feed_id', '1000')->firstOrFail())
         ->department->toBe('Vård')
         ->remote->value->toBe('hybrid');

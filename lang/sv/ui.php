@@ -102,7 +102,6 @@ return [
         'any_time' => 'När som helst',
         'within_days' => '{1} Senaste dygnet|[2,*] Senaste :days dagarna',
         'new' => 'Upptäckt senaste :days dagarna',
-        'not_in_platsbanken' => 'Bara annonser som saknas i Platsbanken',
         'kind' => 'Karriärsida',
         'unseen' => 'Bara osedda',
     ],

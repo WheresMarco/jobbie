@@ -8,6 +8,7 @@ use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
 use App\Enums\CandidateSourceType;
 use App\Enums\CandidateStage;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Models\Candidate;
@@ -79,15 +80,18 @@ final class RadarStats
     }
 
     /**
-     * Phase 9: how many active postings also appear in Platsbanken.
+     * Phase 9: how many active postings on employer boards also appear in
+     * Platsbanken. The Platsbanken board's own postings are left out.
      *
      * @return array{active: int, matched: int, apply_url: int, org_title: int}
      */
     public function platsbankenOverlap(): array
     {
-        $active = JobPosting::query()->where('active', true)->count();
+        $employerBoards = Board::query()->where('platform', '!=', Platform::Platsbanken)->select('id');
+        $active = JobPosting::query()->where('active', true)->whereIn('board_id', $employerBoards)->count();
         $methods = JobPosting::query()->toBase()
             ->where('active', true)
+            ->whereIn('board_id', $employerBoards)
             ->where('in_platsbanken', true)
             ->select('platsbanken_match')
             ->selectRaw('count(*) as total')
