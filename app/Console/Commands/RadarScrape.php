@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Console\Concerns\FollowsBatches;
 use App\Console\Concerns\Translates;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Jobs\ScrapeBoard;
 use App\Models\Board;
 use App\Models\BoardAlias;
@@ -23,6 +24,7 @@ final class RadarScrape extends Command
     protected $signature = 'radar:scrape
         {--only-active : Only boards that had postings last time}
         {--host=* : Only these hosts (canonical or alias)}
+        {--platform=* : Only boards on these platforms (teamtailor, varbi, smartrecruiters, workday)}
         {--no-wait : Dispatch the batch and exit without showing progress}';
 
     protected $description = 'Queue a scrape of every known career site';
@@ -58,7 +60,17 @@ final class RadarScrape extends Command
      */
     private function boards(DomainName $domains): Builder
     {
-        $query = Board::query()->orderBy('id');
+        // The Platsbanken board is filled by the JobStream sync.
+        $query = Board::query()->whereIn('platform', Platform::scraped())->orderBy('id');
+
+        /** @var list<string> $platformOption */
+        $platformOption = (array) $this->option('platform');
+        if ($platformOption !== []) {
+            $query->whereIn('platform', array_map(
+                static fn (string $name): string => strtolower(trim($name)),
+                array_merge(...array_map(static fn (string $o): array => explode(',', $o), $platformOption)),
+            ));
+        }
 
         /** @var list<string> $hostOption */
         $hostOption = (array) $this->option('host');

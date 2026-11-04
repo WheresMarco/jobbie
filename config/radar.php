@@ -65,6 +65,20 @@ return [
         )))),
     ],
 
+    /*
+    | Recruitment systems besides Teamtailor. Discovery creates a board for
+    | every account on these platforms that a Platsbanken ad links to.
+    | Accounts on platforms used by multinationals (SmartRecruiters,
+    | Workday) are narrowed to postings in this country.
+    */
+    'platforms' => [
+        'enabled' => array_values(array_filter(explode(',', (string) env(
+            'RADAR_PLATFORMS',
+            'varbi,smartrecruiters,workday',
+        )))),
+        'country' => env('RADAR_COUNTRY', 'SE'),
+    ],
+
     'jobstream' => [
         'base_url' => env('RADAR_JOBSTREAM_BASE_URL', 'https://jobstream.api.jobtechdev.se'),
         'api_key' => env('RADAR_JOBSTREAM_API_KEY'),

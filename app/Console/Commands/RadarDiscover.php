@@ -7,9 +7,11 @@ namespace App\Console\Commands;
 use App\Console\Concerns\Translates;
 use App\Discovery\CandidateCollector;
 use App\Discovery\JobStream\JobStreamSync;
+use App\Discovery\PlatformBoardDiscovery;
 use App\Discovery\SourceRegistry;
 use App\Enums\CandidateSourceType;
 use App\Jobs\CollectCandidates;
+use App\Jobs\DiscoverPlatformBoards;
 use App\Jobs\QueueVerification;
 use App\Jobs\SyncJobStream;
 use App\Models\Domain;
@@ -30,8 +32,13 @@ final class RadarDiscover extends Command
 
     protected $description = 'Collect candidate hosts from the discovery sources';
 
-    public function handle(DomainName $domains, SourceRegistry $sources, CandidateCollector $collector, JobStreamSync $jobStream): int
-    {
+    public function handle(
+        DomainName $domains,
+        SourceRegistry $sources,
+        CandidateCollector $collector,
+        JobStreamSync $jobStream,
+        PlatformBoardDiscovery $platforms,
+    ): int {
         $types = $this->types();
         if ($types === null) {
             return self::INVALID;
@@ -61,6 +68,10 @@ final class RadarDiscover extends Command
                     $this->components->info($this->t('radar.discover.jobstream_synced', [
                         'ads' => $result->ads, 'removed' => $result->removed, 'domains' => $result->newDomains,
                     ]));
+
+                    foreach ($platforms->discover() as $platform => $counts) {
+                        $this->components->info($this->t('radar.discover.platform_boards', ['platform' => $platform, ...$counts]));
+                    }
                 }
 
                 $counts = $collector->collect($sources->source($type));
@@ -72,6 +83,7 @@ final class RadarDiscover extends Command
             // Queued sources run one after another in a single chain.
             if ($type === CandidateSourceType::JobStream) {
                 $chain[] = new SyncJobStream();
+                $chain[] = new DiscoverPlatformBoards();
             }
             $chain[] = new CollectCandidates($type);
 

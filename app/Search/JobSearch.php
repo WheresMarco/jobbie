@@ -79,6 +79,7 @@ final readonly class JobSearch
             published: $facets['published'] ?? [],
             new: $facets['new'] ?? 0,
             kinds: $facets['kinds'] ?? [],
+            platforms: $facets['platforms'] ?? [],
             notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
             unseen: $facets['unseen'] ?? 0,
         );
@@ -92,7 +93,6 @@ final readonly class JobSearch
         foreach ($summary['groups'] as $group) {
             $items = array_values(array_filter(array_map(static fn (int $id): ?JobPosting => $postings->get($id), $group['ids'])));
             $board = $items === [] ? null : $items[0]->getRelationValue('board');
-            $host = $board instanceof Board ? $board->canonical_host : null;
 
             $groups[] = new EmployerGroup(
                 employer: $group['employer'],
@@ -100,7 +100,7 @@ final readonly class JobSearch
                 remote: $group['remote'],
                 postings: $items,
                 cities: $group['cities'],
-                siteUrl: $host === null ? null : "https://{$host}/",
+                siteUrl: $board instanceof Board ? $board->siteUrl() : null,
                 open: in_array($group['employer'], $open, true),
             );
         }
@@ -115,7 +115,7 @@ final readonly class JobSearch
     }
 
     /**
-     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, notInPlatsbanken: int, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
+     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, platforms: array<string, int>, notInPlatsbanken: int, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
     private function summarize(JobFilters $filters, bool $grouped, int $limit, ?UserMarks $marks): array
     {
@@ -127,9 +127,10 @@ final readonly class JobSearch
         }
         $filterPublishedSince = $filters->publishedDays === null ? null : $publishedSince[$filters->publishedDays];
 
-        $boardKind = $boardName = [];
-        foreach (DB::table('boards')->select('id', 'kind', 'name', 'canonical_host')->get() as $board) {
+        $boardKind = $boardPlatform = $boardName = [];
+        foreach (DB::table('boards')->select('id', 'platform', 'kind', 'name', 'canonical_host')->get() as $board) {
             $boardKind[(int) $board->id] = (string) $board->kind;
+            $boardPlatform[(int) $board->id] = (string) $board->platform;
             $boardName[(int) $board->id] = (string) ($board->name ?? $board->canonical_host);
         }
 
@@ -139,6 +140,7 @@ final readonly class JobSearch
         $department = $filters->department;
         $newOnly = $filters->newOnly;
         $kind = $filters->kind?->value;
+        $platform = $filters->platform?->value;
         $notInPlatsbanken = $filters->notInPlatsbanken;
         $unseenOnly = $filters->unseenOnly && $marks !== null;
         $tracking = $marks !== null;
@@ -150,7 +152,7 @@ final readonly class JobSearch
         $rows = self::fetchNumeric($this->rows($filters));
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
 
-        $countries = $cities = $remotes = $departments = $published = $kinds = [];
+        $countries = $cities = $remotes = $departments = $published = $kinds = $platforms = [];
         $newCount = $missingCount = $unseenCount = $total = 0;
         // Per employer: postings, fully remote postings and row indexes.
         $employerTotal = $employerRemote = $employerRows = [];
@@ -169,6 +171,7 @@ final readonly class JobSearch
             $isUnseen = $tracking && ! array_key_exists($id, $statuses) && ($seenUntil === null || $firstSeenAt > $seenUntil);
 
             $rowKind = $boardKind[$boardId] ?? '';
+            $rowPlatform = $boardPlatform[$boardId] ?? '';
             $rowCountries = $rowCountriesById[$id] ?? [];
             $rowCities = $rowCitiesById[$id] ?? [];
             $remote = $remoteOptions[$rowRemote ?? ''] ?? 'unknown';
@@ -205,6 +208,10 @@ final readonly class JobSearch
             }
             if ($kind !== null && $rowKind !== $kind) {
                 $failed = 'kind';
+                $failures++;
+            }
+            if ($platform !== null && $rowPlatform !== $platform) {
+                $failed = 'platform';
                 $failures++;
             }
             if ($notInPlatsbanken && $inPlatsbanken) {
@@ -247,8 +254,12 @@ final readonly class JobSearch
             if (($failed === null || $failed === 'new') && $isNew) {
                 $newCount++;
             }
-            if ($failed === null || $failed === 'kind') {
+            // Only Teamtailor boards have a kind.
+            if (($failed === null || $failed === 'kind') && $rowKind !== '') {
                 $kinds[$rowKind] = ($kinds[$rowKind] ?? 0) + 1;
+            }
+            if ($failed === null || $failed === 'platform') {
+                $platforms[$rowPlatform] = ($platforms[$rowPlatform] ?? 0) + 1;
             }
             if (($failed === null || $failed === 'platsbanken') && ! $inPlatsbanken) {
                 $missingCount++;
@@ -324,6 +335,7 @@ final readonly class JobSearch
                 'published' => $publishedCounts,
                 'new' => $newCount,
                 'kinds' => $kinds,
+                'platforms' => $platforms,
                 'notInPlatsbanken' => $missingCount,
                 'unseen' => $unseenCount,
             ],
@@ -384,11 +396,14 @@ final readonly class JobSearch
 
     /**
      * One narrow row per active posting that matches the free text.
+     * Platsbanken postings for ads that were also read from the employer's
+     * own system are left out (see PlatsbankenMatcher).
      */
     private function rows(JobFilters $filters): Builder
     {
         $query = DB::table('job_postings')
             ->where('job_postings.active', true)
+            ->whereNull('job_postings.duplicate_of_id')
             ->select([
                 'job_postings.id', 'job_postings.board_id', 'job_postings.company', 'job_postings.remote',
                 'job_postings.department', 'job_postings.posted_at', 'job_postings.first_seen_at',

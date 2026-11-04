@@ -58,10 +58,13 @@ return [
         'collected' => 'Källan :source gav :seen värdar, :created nya kandidater (:invalid ogiltiga).',
         'jobstream_synced' => 'JobStream: :ads annonser, :removed borttagna, :domains nya domäner.',
         'domains_imported' => ':count nya domäner importerades.',
+        'platform_boards' => ':platform: :accounts konton i Platsbankens ansökningslänkar, :created nya karriärsidor.',
     ],
     'stats' => [
         'sources' => 'Upptäcktskällor',
         'boards' => 'Karriärsidor',
+        'platforms' => 'Källor',
+        'platform_detail' => ':boards sidor, :active aktiva, :postings annonser',
         'in_platsbanken' => 'Finns även i Platsbanken',
         'active_postings' => 'Aktiva annonser',
         'prefix_hits' => 'Verifierade per prefix',
@@ -90,6 +93,13 @@ return [
         'txt' => 'TXT (E)',
         'http_archive' => 'HTTP Archive (F)',
         'search_api' => 'Sök-API (G)',
+    ],
+    'platforms' => [
+        'teamtailor' => 'Teamtailor',
+        'platsbanken' => 'Platsbanken',
+        'varbi' => 'Varbi',
+        'smartrecruiters' => 'SmartRecruiters',
+        'workday' => 'Workday',
     ],
     'kinds' => [
         'tt_subdomain' => 'Teamtailor-adress',

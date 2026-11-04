@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Enums\RemoteStatus;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -62,8 +63,11 @@ class DemoSeeder extends Seeder
         $boardRows = [];
         for ($b = 1; $b <= $this->boards; $b++) {
             $custom = $b % 3 !== 0;
+            $host = $custom ? "karriar.foretag{$b}.se" : "foretag{$b}.teamtailor.com";
             $boardRows[] = [
-                'canonical_host' => $custom ? "karriar.foretag{$b}.se" : "foretag{$b}.teamtailor.com",
+                'platform' => Platform::Teamtailor->value,
+                'external_key' => $host,
+                'canonical_host' => $host,
                 'tt_slug' => $custom ? null : "foretag{$b}",
                 'kind' => ($custom ? BoardKind::Custom : BoardKind::TtSubdomain)->value,
                 'status' => BoardStatus::Active->value,

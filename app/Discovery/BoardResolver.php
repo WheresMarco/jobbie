@@ -7,6 +7,7 @@ namespace App\Discovery;
 use App\Enums\BoardAliasRelation;
 use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Models\JobPosting;
@@ -15,8 +16,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The only place boards are created. Keeps exactly one board per career
- * site, however many hosts lead to it.
+ * The only place Teamtailor boards are created. Keeps exactly one board per
+ * career site, however many hosts lead to it.
  *
  * The canonical host is the host of the feed's home_page_url, or the host
  * jobs.json ended up on after redirects when there is no home page. Every
@@ -52,6 +53,7 @@ final readonly class BoardResolver
 
             if ($board === null) {
                 $board = Board::query()->create([
+                    'platform' => Platform::Teamtailor,
                     'canonical_host' => $canonical,
                     'tt_slug' => self::slugOf($canonical) ?? self::slugOf($finalHost) ?? self::slugOf($host),
                     'kind' => self::kindOf($canonical),
@@ -83,7 +85,7 @@ final readonly class BoardResolver
 
     public function findByHost(string $host): ?Board
     {
-        return Board::query()->where('canonical_host', $host)->first()
+        return Board::query()->teamtailor()->where('canonical_host', $host)->first()
             ?? BoardAlias::query()->find($host)?->board;
     }
 
@@ -97,7 +99,7 @@ final readonly class BoardResolver
             return $board;
         }
 
-        $other = Board::query()->where('canonical_host', $host)->whereKeyNot($board->id)->first();
+        $other = Board::query()->teamtailor()->where('canonical_host', $host)->whereKeyNot($board->id)->first();
         if ($other !== null) {
             return $this->merge($board, $other);
         }
@@ -119,9 +121,11 @@ final readonly class BoardResolver
             return $board;
         }
 
+        // Feed ids are only comparable within one platform.
         $candidates = JobPosting::query()
             ->where('active', true)
             ->where('board_id', '!=', $board->id)
+            ->whereIn('board_id', Board::query()->teamtailor()->select('id'))
             ->whereIn('feed_id', $feedIds)
             ->groupBy('board_id')
             ->havingRaw('count(*) = ?', [$count])
@@ -180,7 +184,7 @@ final readonly class BoardResolver
 
     private function recanonicalize(Board $board, string $canonical): Board
     {
-        $other = Board::query()->where('canonical_host', $canonical)->whereKeyNot($board->id)->first();
+        $other = Board::query()->teamtailor()->where('canonical_host', $canonical)->whereKeyNot($board->id)->first();
         if ($other !== null) {
             $board = $this->merge($board, $other);
             if ($board->canonical_host === $canonical) {

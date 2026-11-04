@@ -40,6 +40,11 @@ final class RadarStats extends Command
             ], $stats->sources()),
         );
 
+        $this->components->twoColumnDetail('<fg=green>'.$this->t('radar.stats.platforms').'</>');
+        foreach ($stats->platforms() as $platform => $counts) {
+            $this->components->twoColumnDetail($this->t("radar.platforms.{$platform}"), $this->t('radar.stats.platform_detail', $counts));
+        }
+
         $this->components->twoColumnDetail('<fg=green>'.$this->t('radar.stats.boards').'</>');
         foreach ($stats->boardsByKind() as $kind => $count) {
             $this->components->twoColumnDetail($this->t("radar.kinds.{$kind}"), (string) $count);
