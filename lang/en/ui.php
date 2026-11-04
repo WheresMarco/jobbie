@@ -160,7 +160,8 @@ return [
         'within_days' => '{1} Last 24 hours|[2,*] Last :days days',
         'new' => 'Discovered in the last :days days',
         'not_in_platsbanken' => 'Only postings missing from Platsbanken',
-        'kind' => 'Career site',
+        'platform' => 'Source',
+        'kind' => 'Teamtailor site type',
         'unseen' => 'Unseen only',
     ],
     'remote' => [
@@ -172,7 +173,8 @@ return [
     'stats' => [
         'sources' => 'Discovery sources',
         'boards' => 'Career sites',
-        'by_kind' => 'By kind',
+        'platforms' => 'Per source',
+        'by_kind' => 'Teamtailor by kind',
         'by_status' => 'By status',
         'active_postings' => 'Active postings',
         'prefix_hits' => 'Verified career sites per prefix',

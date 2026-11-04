@@ -8,6 +8,7 @@ use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
 use App\Enums\CandidateSourceType;
 use App\Enums\CandidateStage;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Models\Candidate;
@@ -58,11 +59,37 @@ final class RadarStats
     }
 
     /**
-     * @return array<string, int> BoardKind value => boards
+     * @return array<string, int> BoardKind value => Teamtailor boards
      */
     public function boardsByKind(): array
     {
-        return $this->countBy(Board::query()->toBase(), 'kind', array_column(BoardKind::cases(), 'value'));
+        return $this->countBy(Board::query()->teamtailor()->toBase(), 'kind', array_column(BoardKind::cases(), 'value'));
+    }
+
+    /**
+     * Boards and the postings shown in the job list, per platform.
+     *
+     * @return array<string, array{boards: int, active: int, postings: int}> Platform value => counts
+     */
+    public function platforms(): array
+    {
+        $counts = array_fill_keys(array_column(Platform::cases(), 'value'), ['boards' => 0, 'active' => 0, 'postings' => 0]);
+
+        foreach (Board::query()->toBase()->select('platform')
+            ->selectRaw('count(*) as boards')
+            ->selectRaw('sum(case when status = ? then 1 else 0 end) as active', [BoardStatus::Active->value])
+            ->groupBy('platform')->get() as $row) {
+            $counts[(string) $row->platform]['boards'] = (int) $row->boards;
+            $counts[(string) $row->platform]['active'] = (int) $row->active;
+        }
+
+        foreach ($this->visiblePostings()->join('boards', 'boards.id', '=', 'job_postings.board_id')
+            ->select('boards.platform')->selectRaw('count(*) as postings')
+            ->groupBy('boards.platform')->get() as $row) {
+            $counts[(string) $row->platform]['postings'] = (int) $row->postings;
+        }
+
+        return $counts;
     }
 
     /**
@@ -73,21 +100,28 @@ final class RadarStats
         return $this->countBy(Board::query()->toBase(), 'status', array_column(BoardStatus::cases(), 'value'));
     }
 
+    /**
+     * Active postings as the job list counts them: without the Platsbanken
+     * copies of ads read from the employer's own system.
+     */
     public function activePostings(): int
     {
-        return JobPosting::query()->where('active', true)->count();
+        return $this->visiblePostings()->count();
     }
 
     /**
-     * Phase 9: how many active postings also appear in Platsbanken.
+     * Phase 9: how many active postings from the employers' own systems
+     * also appear in Platsbanken.
      *
      * @return array{active: int, matched: int, apply_url: int, org_title: int}
      */
     public function platsbankenOverlap(): array
     {
-        $active = JobPosting::query()->where('active', true)->count();
+        $scraped = Board::query()->whereIn('platform', Platform::scraped())->select('id');
+        $active = JobPosting::query()->where('active', true)->whereIn('board_id', $scraped)->count();
         $methods = JobPosting::query()->toBase()
             ->where('active', true)
+            ->whereIn('board_id', $scraped)
             ->where('in_platsbanken', true)
             ->select('platsbanken_match')
             ->selectRaw('count(*) as total')
@@ -148,6 +182,11 @@ final class RadarStats
         }
 
         return $hits;
+    }
+
+    private function visiblePostings(): Builder
+    {
+        return JobPosting::query()->toBase()->where('job_postings.active', true)->whereNull('job_postings.duplicate_of_id');
     }
 
     private function activeBoardsPerSource(): Builder

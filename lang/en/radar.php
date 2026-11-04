@@ -58,10 +58,13 @@ return [
         'collected' => 'Source :source gave :seen hosts, :created new candidates (:invalid invalid).',
         'jobstream_synced' => 'JobStream: :ads ads, :removed removed, :domains new domains.',
         'domains_imported' => ':count new domains imported.',
+        'platform_boards' => ':platform: :accounts accounts in Platsbanken apply links, :created new career sites.',
     ],
     'stats' => [
         'sources' => 'Discovery sources',
         'boards' => 'Career sites',
+        'platforms' => 'Sources',
+        'platform_detail' => ':boards sites, :active active, :postings postings',
         'in_platsbanken' => 'Also in Platsbanken',
         'active_postings' => 'Active postings',
         'prefix_hits' => 'Verified per prefix',
@@ -90,6 +93,13 @@ return [
         'txt' => 'TXT (E)',
         'http_archive' => 'HTTP Archive (F)',
         'search_api' => 'Search API (G)',
+    ],
+    'platforms' => [
+        'teamtailor' => 'Teamtailor',
+        'platsbanken' => 'Platsbanken',
+        'varbi' => 'Varbi',
+        'smartrecruiters' => 'SmartRecruiters',
+        'workday' => 'Workday',
     ],
     'kinds' => [
         'tt_subdomain' => 'Teamtailor address',

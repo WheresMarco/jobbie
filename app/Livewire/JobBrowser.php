@@ -48,6 +48,9 @@ final class JobBrowser extends Component
     #[Url(except: '')]
     public string $kind = '';
 
+    #[Url(except: '')]
+    public string $platform = '';
+
     /** Only postings not found in Platsbanken (Phase 9). */
     #[Url(except: false)]
     public bool $missing = false;
@@ -100,7 +103,7 @@ final class JobBrowser extends Component
 
     public function clearFilters(): void
     {
-        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'missing', 'unseen', 'limit', 'open');
+        $this->reset('q', 'country', 'city', 'remote', 'department', 'published', 'new', 'kind', 'platform', 'missing', 'unseen', 'limit', 'open');
     }
 
     /**
@@ -125,6 +128,7 @@ final class JobBrowser extends Component
             kind: $this->kind,
             notInPlatsbanken: $this->missing,
             unseenOnly: $this->unseen,
+            platform: $this->platform,
         );
     }
 

@@ -35,6 +35,32 @@
         @endif
     </section>
 
+    <section>
+        <h2 class="text-lg font-semibold tracking-tight">{{ __('ui.stats.platforms') }}</h2>
+        <div class="mt-3 overflow-x-auto rounded-xl border border-stone-200 bg-white">
+            <table class="min-w-full text-sm">
+                <thead class="bg-stone-50 text-left text-xs uppercase tracking-wide text-stone-500">
+                    <tr>
+                        <th class="px-4 py-2 font-medium">{{ __('radar.stats.columns.source') }}</th>
+                        <th class="px-3 py-2 text-right font-medium">{{ __('ui.stats.boards') }}</th>
+                        <th class="px-3 py-2 text-right font-medium">{{ __('radar.stats.columns.active_boards') }}</th>
+                        <th class="px-4 py-2 text-right font-medium">{{ __('radar.stats.columns.postings') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-stone-100 tabular-nums">
+                    @foreach ($platforms as $platform => $counts)
+                        <tr wire:key="platform-{{ $platform }}" data-platform="{{ $platform }}">
+                            <th scope="row" class="px-4 py-2 text-left font-medium">{{ __("radar.platforms.{$platform}") }}</th>
+                            <td class="px-3 py-2 text-right">{{ $counts['boards'] }}</td>
+                            <td class="px-3 py-2 text-right">{{ $counts['active'] }}</td>
+                            <td class="px-4 py-2 text-right">{{ number_format($counts['postings'], 0, ',', ' ') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl border border-stone-200 bg-white p-4">
             <h2 class="text-sm font-medium text-stone-500">{{ __('ui.stats.active_postings') }}</h2>

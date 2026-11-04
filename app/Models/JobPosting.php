@@ -37,11 +37,12 @@ use Illuminate\Support\Carbon;
  * @property bool $in_platsbanken
  * @property string|null $platsbanken_ad_id
  * @property string|null $platsbanken_match
+ * @property int|null $duplicate_of_id
  */
 #[Fillable([
     'board_id', 'feed_id', 'title', 'url', 'company', 'cities', 'countries', 'remote', 'department',
     'employment_type', 'salary_text', 'posted_at', 'description', 'first_seen_at', 'last_seen_at', 'active',
-    'in_platsbanken', 'platsbanken_ad_id', 'platsbanken_match',
+    'in_platsbanken', 'platsbanken_ad_id', 'platsbanken_match', 'duplicate_of_id',
 ])]
 class JobPosting extends Model
 {
