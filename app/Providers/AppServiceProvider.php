@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Anthropic\Client as AnthropicClient;
 use App\Discovery\Calibration\Calibrator;
 use App\Discovery\JobStream\JobStreamSync;
 use App\Discovery\Sources\CommonCrawlSource;
@@ -12,6 +13,12 @@ use App\Discovery\Sources\PrefixSource;
 use App\Discovery\Sources\SearchApiSource;
 use App\Discovery\Sources\TxtRecordSource;
 use App\Discovery\Verifier;
+use App\Matching\CandidateFinder;
+use App\Matching\ClaudeLanguageModel;
+use App\Matching\Contracts\LanguageModel;
+use App\Matching\MatchScorer;
+use App\Matching\ProfileExtractor;
+use App\Matching\ResumeMatcher;
 use App\Models\User;
 use App\Net\BigQuery;
 use App\Net\Contracts\CertificateFetcher;
@@ -24,6 +31,7 @@ use App\Net\SystemDnsResolver;
 use App\Scraping\FeedClient;
 use App\Scraping\RssEnricher;
 use App\Search\JobSearch;
+use App\Tracking\PostingTracker;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -111,6 +119,25 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(JobSearch::class, static fn (): JobSearch => new JobSearch(
             newJobDays: config()->integer('radar.new_job_days'),
+        ));
+
+        // CV matching is off without an API key: nothing provides a model.
+        $apiKey = config('radar.matching.api_key');
+        if (is_string($apiKey) && $apiKey !== '') {
+            $this->app->singleton(LanguageModel::class, static fn (): LanguageModel => new ClaudeLanguageModel(
+                client: new AnthropicClient(apiKey: $apiKey, requestOptions: ['timeout' => 240]),
+                model: config()->string('radar.matching.model'),
+                effort: config()->string('radar.matching.effort'),
+            ));
+        }
+
+        $this->app->bind(ResumeMatcher::class, static fn (Application $app): ResumeMatcher => new ResumeMatcher(
+            extractor: $app->make(ProfileExtractor::class),
+            finder: $app->make(CandidateFinder::class),
+            scorer: $app->make(MatchScorer::class),
+            tracker: $app->make(PostingTracker::class),
+            candidates: config()->integer('radar.matching.candidates'),
+            chunkSize: config()->integer('radar.matching.chunk_size'),
         ));
 
         $this->app->bind(Calibrator::class, static fn (Application $app): Calibrator => new Calibrator(

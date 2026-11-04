@@ -111,4 +111,22 @@ return [
     */
     'registration' => (bool) env('RADAR_REGISTRATION', true),
 
+    /*
+    | CV matching on /matcha through the Claude API (key in
+    | ANTHROPIC_API_KEY, off without it). Full-text search picks the
+    | `candidates` most similar postings and Claude scores them,
+    | `chunk_size` per request. Every upload, change of preferences or
+    | new search counts against `daily_runs` per user.
+    */
+    'matching' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('RADAR_MATCH_MODEL', 'claude-haiku-5-5'),
+        'effort' => env('RADAR_MATCH_EFFORT', 'medium'),
+        'candidates' => (int) env('RADAR_MATCH_CANDIDATES', 100),
+        'chunk_size' => (int) env('RADAR_MATCH_CHUNK_SIZE', 20),
+        'min_score' => (int) env('RADAR_MATCH_MIN_SCORE', 50),
+        'daily_runs' => (int) env('RADAR_MATCH_DAILY_RUNS', 10),
+        'max_upload_kb' => (int) env('RADAR_MATCH_MAX_UPLOAD_KB', 10240),
+    ],
+
 ];

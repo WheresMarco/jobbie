@@ -52,6 +52,7 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:match-platsbanken` | Markerar annonser som även finns i Platsbanken (körs varje natt) |
 | `radar:stats` | Kandidater per källa och steg, aktiva karriärsidor och annonser per källa, fördelning per typ och status, verifierade per prefix och TXT-kunder utan hittad sida |
 | `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--no-wait` avslutar direkt efter köandet |
+| `radar:match {e-post} {cv?}` | Matchar ett CV (PDF) mot annonserna med Claude, utan kön, och listar de bästa matchningarna. Utan fil matchas kontots nuvarande profil mot nya annonser. `--preferences=` sätter önskemål och `--top=` antal rader |
 
 `radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
 
@@ -131,6 +132,18 @@ En annons är **osedd** tills man markerar den, öppnar den, väljer *Markera so
 Markeringarna ligger i tabellen `job_posting_marks`, en rad per användare och annons som användaren har sett eller markerat, och dolda företag i `hidden_employers`. Sökresultatet cachas per användare och räknas om när användarens markeringar ändras.
 
 Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` satta krävs dessutom HTTP Basic Auth framför hela appen, till exempel medan en server testas innan den öppnas. Utan dem påverkar Basic Auth ingenting.
+
+## Matchning mot CV
+
+På `/matcha` laddar man upp sitt CV som PDF, med önskemål i fritext om man vill (till exempel ”Linköping eller distans”). Claude läser CV:t och får sedan bedöma de annonser som liknar det mest. Funktionen kräver en nyckel till Claude API i `ANTHROPIC_API_KEY` och är avstängd utan den.
+
+1. **Profil.** PDF-filen skickas som den är till Claude, så CV med spalter och inskannade sidor fungerar. Svaret är en strukturerad profil: rubrik, sammanfattning, nivå, roller, kompetenser, orter, länder och söktermer på svenska och engelska, inklusive sammansatta titlar som ”backendutvecklare”. Filen raderas sedan. Bara profilen sparas, utan namn eller kontaktuppgifter.
+2. **Kandidater.** Söktermerna körs mot FULLTEXT i boolean mode där vilken term som helst räcker. Termer i titeln väger tre gånger mer (ett eget FULLTEXT-index på titeln), och bara annonser i profilens länder eller utan känd ort tas med. Dolda annonser och företag hoppas över, liksom upprepningar (samma titel hos samma arbetsgivare, eller samma titel och inledning under ett annat namn på arbetsgivaren). De `RADAR_MATCH_CANDIDATES` bästa (standard 100) går vidare.
+3. **Bedömning.** Claude ger varje annons 0–100 och en mening om varför, `RADAR_MATCH_CHUNK_SIZE` annonser per anrop (standard 20). Anropen körs parallellt i kön (`AnalyzeResume` och sedan en batch av `ScoreResumeMatches`). Beskrivningarna kortas till 3 000 tecken.
+
+Listan visar annonser med minst `RADAR_MATCH_MIN_SCORE` poäng (standard 50), och svagare på begäran. *Sök nya annonser* skickar bara annonser som inte bedömts förut. Ändrade önskemål gör om profilen utifrån den sparade profilen (CV:t finns inte kvar) och bedömer allt på nytt. Varje uppladdning, ändring och ny sökning räknas mot `RADAR_MATCH_DAILY_RUNS` per användare och dygn (standard 10), eftersom anropen kostar pengar.
+
+Modellen är `claude-haiku-5-5` med `effort` `medium` (`RADAR_MATCH_MODEL`, `RADAR_MATCH_EFFORT`). En full matchning (100 annonser) är omkring 140 000 tokens in och 10 000 ut, med Haiku runt två cent. `claude-sonnet-5-5` eller `claude-opus-5-5` bedömer noggrannare men kostar ungefär 20 respektive 40 gånger så mycket. Med dem är server-side fallback påslaget: avböjer modellen ett anrop av policyskäl provar API:t sin standardreserv. Haiku har ingen sådan. Varje anrop loggas med antal tokens.
 
 ## Överlapp mot Platsbanken
 

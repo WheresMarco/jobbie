@@ -14,6 +14,16 @@
 <li class="py-3" wire:key="posting-{{ $posting->id }}" @if ($status) data-status="{{ $status->value }}" @endif>
     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span class="flex items-baseline gap-2">
+            @isset($match)
+                {{-- How well the posting fits the user's CV (/matcha). --}}
+                <span @class([
+                    'shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums',
+                    'bg-accent-600 text-white' => $match->score >= 80,
+                    'bg-accent-100 text-accent-700' => $match->score >= 65 && $match->score < 80,
+                    'bg-amber-100 text-amber-800' => $match->score >= 50 && $match->score < 65,
+                    'bg-stone-100 text-stone-600' => $match->score < 50,
+                ]) title="{{ __('ui.match.score_title') }}" data-score="{{ $match->score }}">{{ $match->score }}</span>
+            @endisset
             @if ($isUnseen)
                 <span class="inline-block size-2 shrink-0 rounded-full bg-accent-600" title="{{ __('ui.marks.unseen') }}" data-unseen></span>
                 <span class="sr-only">{{ __('ui.marks.unseen') }}</span>
@@ -56,6 +66,9 @@
             <span class="rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700">{{ __('ui.jobs.closed_badge') }}</span>
         @endunless
     </div>
+    @isset($match)
+        <p class="mt-1.5 text-sm leading-relaxed text-stone-700" data-reason>{{ $match->reason }}</p>
+    @endisset
     @if ($terms !== [] && $posting->description)
         <p class="mt-1.5 text-sm leading-relaxed text-stone-600">{{ \App\Search\Highlighter::snippet($posting->description, $terms) }}</p>
     @endif
