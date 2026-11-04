@@ -103,7 +103,8 @@ return [
         'within_days' => '{1} Senaste dygnet|[2,*] Senaste :days dagarna',
         'new' => 'Upptäckt senaste :days dagarna',
         'not_in_platsbanken' => 'Bara annonser som saknas i Platsbanken',
-        'kind' => 'Karriärsida',
+        'kind' => 'Typ av Teamtailor-sida',
+        'platform' => 'Källa',
         'unseen' => 'Bara osedda',
     ],
     'remote' => [
@@ -115,7 +116,8 @@ return [
     'stats' => [
         'sources' => 'Upptäcktskällor',
         'boards' => 'Karriärsidor',
-        'by_kind' => 'Per typ',
+        'by_kind' => 'Teamtailor per typ',
+        'platforms' => 'Per källa',
         'by_status' => 'Per status',
         'active_postings' => 'Aktiva annonser',
         'prefix_hits' => 'Verifierade karriärsidor per prefix',

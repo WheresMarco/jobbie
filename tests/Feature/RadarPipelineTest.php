@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\Candidate;
 use App\Models\JobPosting;
@@ -16,7 +17,8 @@ uses(RefreshDatabase::class);
 /**
  * Discover, verify and scrape against fake clients, end to end on the
  * sync queue: two Platsbanken ads point at the same Teamtailor site (one
- * through the slug, one through the custom domain) and one at another ATS.
+ * through the slug, one through the custom domain) and one at a Varbi
+ * account whose feed is gone. All three ads are Platsbanken postings.
  */
 it('finds, verifies and scrapes career sites from Platsbanken', function (): void {
     config(['radar.jobstream.base_url' => 'https://jobstream.test', 'radar.prefixes' => ['jobb']]);
@@ -45,8 +47,8 @@ it('finds, verifies and scrapes career sites from Platsbanken', function (): voi
     $this->artisan('radar:scrape')->assertSuccessful();
 
     // One board for the Teamtailor site, reachable from both hosts.
-    expect(Board::query()->count())->toBe(1);
-    $board = Board::query()->with('aliases')->firstOrFail();
+    expect(Board::query()->teamtailor()->count())->toBe(1);
+    $board = Board::query()->teamtailor()->with('aliases')->firstOrFail();
     expect($board->canonical_host)->toBe('career.kry.se')
         ->and($board->status)->toBe(BoardStatus::Active)
         ->and($board->job_count)->toBe(120)
@@ -61,7 +63,11 @@ it('finds, verifies and scrapes career sites from Platsbanken', function (): voi
         'jobb.kry.se' => 'no_dns',
     ]);
 
-    expect(JobPosting::query()->where('active', true)->count())->toBe(120)
+    // The Varbi account was found through its apply link; its feed is gone.
+    expect(Board::query()->where('platform', Platform::Varbi)->pluck('status', 'external_key')->map->value->all())->toBe(['acme' => 'dead'])
+        ->and(Board::query()->where('platform', Platform::Platsbanken)->firstOrFail()->job_count)->toBe(3);
+
+    expect(JobPosting::query()->where('active', true)->where('board_id', $board->id)->count())->toBe(120)
         ->and(JobPosting::query()->where('feed_id', '1000')->firstOrFail())
         ->department->toBe('Vård')
         ->remote->value->toBe('hybrid');

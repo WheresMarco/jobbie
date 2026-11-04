@@ -20,6 +20,7 @@ final class StatsPage extends Component
             'sources' => $stats->sources(),
             'stages' => array_column(CandidateStage::cases(), 'value'),
             'byKind' => $stats->boardsByKind(),
+            'platforms' => $stats->platforms(),
             'byStatus' => $stats->boardsByStatus(),
             'activePostings' => $stats->activePostings(),
             'platsbanken' => $stats->platsbankenOverlap(),

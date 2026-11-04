@@ -5,21 +5,28 @@ declare(strict_types=1);
 namespace App\Discovery;
 
 use App\Discovery\JobStream\JobStreamSync;
+use App\Enums\Platform;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Models\Domain;
 use App\Models\JobPosting;
+use App\Models\JobPostingLocation;
 use App\Models\PlatsbankenAd;
 use App\Net\DomainName;
+use App\Platforms\PlatformRegistry;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Phase 9: marks job postings that also appear in Platsbanken, to test
- * the premise that these ads are not visible elsewhere.
+ * the premise that these ads are not visible elsewhere. Since Platsbanken
+ * is a job source of its own, the Platsbanken posting for a matched ad is
+ * marked as a duplicate of the employer's own posting and left out of the
+ * job list. A matched posting whose feed has no place (Varbi) gets the
+ * places from Platsbanken.
  *
- * 1. Apply link: the Platsbanken ad links to the same Teamtailor job, by
- *    job id in the path (/jobs/<id>-...), whichever host it uses, or else
- *    by identical host and path.
+ * 1. Apply link: the Platsbanken ad links to the same job, by the job key
+ *    of its platform (for Teamtailor the job id in /jobs/<id>-...,
+ *    whichever host), or else by identical host and path.
  * 2. Organisation number and title: the board's organisation number (from
  *    ads matched in step 1, or from the domains table) and the same
  *    normalised title.
@@ -30,10 +37,12 @@ final readonly class PlatsbankenMatcher
 
     public const string BY_ORG_TITLE = 'org_title';
 
-    private const string JOB_ID = '~/jobs/(\d+)(?:-|/|$)~';
+    private const int CHUNK = 500;
 
-    public function __construct(private DomainName $domains)
-    {
+    public function __construct(
+        private DomainName $domains,
+        private PlatformRegistry $platforms,
+    ) {
     }
 
     /**
@@ -41,19 +50,19 @@ final readonly class PlatsbankenMatcher
      */
     public function match(): array
     {
-        [$byJobId, $byUrl, $byOrgTitle, $orgOfAd] = $this->indexAds();
+        [$byJobKey, $byUrl, $byOrgTitle, $orgOfAd] = $this->indexAds();
+        $sourceBoards = Board::query()->where('platform', Platform::Platsbanken)->pluck('id')->all();
 
         $matches = [];
         $boardOrgVotes = [];
         $unmatched = [];
         $active = 0;
 
-        foreach (JobPosting::query()->where('active', true)->select('id', 'board_id', 'url', 'title')->lazyById(2000) as $posting) {
+        $postings = JobPosting::query()->where('active', true)->whereNotIn('board_id', $sourceBoards)->select('id', 'board_id', 'url', 'title');
+        foreach ($postings->lazyById(2000) as $posting) {
             $active++;
-            $adId = null;
-            if (preg_match(self::JOB_ID, (string) parse_url($posting->url, PHP_URL_PATH), $m) === 1) {
-                $adId = $byJobId[$m[1]] ?? null;
-            }
+            $key = $this->platforms->jobKey($posting->url);
+            $adId = $key === null ? null : ($byJobKey[$key] ?? null);
             $adId ??= $byUrl[self::urlKey($posting->url)] ?? null;
 
             if ($adId !== null) {
@@ -75,7 +84,7 @@ final readonly class PlatsbankenMatcher
             }
         }
 
-        $this->store($matches);
+        $this->store($matches, $sourceBoards);
 
         $counts = array_count_values(array_column($matches, 1));
 
@@ -93,13 +102,13 @@ final readonly class PlatsbankenMatcher
      */
     private function indexAds(): array
     {
-        $byJobId = $byUrl = $byOrgTitle = $orgOfAd = [];
+        $byJobKey = $byUrl = $byOrgTitle = $orgOfAd = [];
 
         foreach (PlatsbankenAd::query()->whereNull('removed_at')->select('id', 'apply_url', 'org_nr', 'title_normalized')->lazyById(2000) as $ad) {
             if ($ad->apply_url !== null) {
                 $url = str_contains($ad->apply_url, '://') ? $ad->apply_url : "https://{$ad->apply_url}";
-                if (preg_match(self::JOB_ID, (string) parse_url($url, PHP_URL_PATH), $m) === 1) {
-                    $byJobId[$m[1]] = $ad->id;
+                if (($key = $this->platforms->jobKey($url)) !== null) {
+                    $byJobKey[$key] = $ad->id;
                 }
                 $byUrl[self::urlKey($url)] = $ad->id;
             }
@@ -112,13 +121,13 @@ final readonly class PlatsbankenMatcher
             }
         }
 
-        return [$byJobId, $byUrl, $byOrgTitle, $orgOfAd];
+        return [$byJobKey, $byUrl, $byOrgTitle, $orgOfAd];
     }
 
     /**
      * The organisation number per board: the most common one among its
      * postings matched by apply link, else the one recorded for the
-     * registrable domain of the board's host or an alias.
+     * registrable domain of a Teamtailor board's host or an alias.
      *
      * @param  array<int, array<string, int>>  $votes
      * @return array<int, string>
@@ -136,7 +145,8 @@ final readonly class PlatsbankenMatcher
             return $orgs;
         }
 
-        $hosts = Board::query()->pluck('canonical_host', 'id')->map(static fn ($host) => [(string) $host])->all();
+        // Other platforms serve many employers from the platform's domain.
+        $hosts = Board::query()->teamtailor()->pluck('canonical_host', 'id')->map(static fn ($host) => [(string) $host])->all();
         foreach (BoardAlias::query()->select('host', 'board_id')->get() as $alias) {
             $hosts[$alias->board_id][] = $alias->host;
         }
@@ -160,15 +170,23 @@ final readonly class PlatsbankenMatcher
 
     /**
      * @param  array<int, array{string, string}>  $matches  posting id => [ad id, method]
+     * @param  list<int>  $sourceBoards  The Platsbanken board, whose postings are the ads themselves.
      */
-    private function store(array $matches): void
+    private function store(array $matches, array $sourceBoards): void
     {
-        DB::transaction(function () use ($matches): void {
-            JobPosting::query()->where('in_platsbanken', true)->update([
+        // Platsbanken posting id per ad id, for the ads that were matched.
+        $twins = [];
+        foreach (array_chunk(array_values(array_unique(array_column($matches, 0))), self::CHUNK) as $adIds) {
+            $twins += JobPosting::query()->whereIn('board_id', $sourceBoards)->whereIn('feed_id', $adIds)->pluck('id', 'feed_id')->all();
+        }
+
+        DB::transaction(function () use ($matches, $sourceBoards, $twins): void {
+            JobPosting::query()->where('in_platsbanken', true)->whereNotIn('board_id', $sourceBoards)->update([
                 'in_platsbanken' => false,
                 'platsbanken_ad_id' => null,
                 'platsbanken_match' => null,
             ]);
+            JobPosting::query()->whereNotNull('duplicate_of_id')->update(['duplicate_of_id' => null]);
 
             foreach ($matches as $postingId => [$adId, $method]) {
                 JobPosting::query()->whereKey($postingId)->update([
@@ -176,8 +194,61 @@ final readonly class PlatsbankenMatcher
                     'platsbanken_ad_id' => $adId,
                     'platsbanken_match' => $method,
                 ]);
+
+                // The first posting matched to an ad is the one shown.
+                if (isset($twins[$adId])) {
+                    JobPosting::query()->whereKey($twins[$adId])->whereNull('duplicate_of_id')->update(['duplicate_of_id' => $postingId]);
+                }
             }
         });
+
+        $this->borrowPlaces($matches, $twins);
+    }
+
+    /**
+     * Matched postings without any place take the Platsbanken ad's places.
+     *
+     * @param  array<int, array{string, string}>  $matches
+     * @param  array<string, int>  $twins
+     */
+    private function borrowPlaces(array $matches, array $twins): void
+    {
+        $sources = [];
+        foreach ($matches as $postingId => [$adId]) {
+            if (isset($twins[$adId])) {
+                $sources[$postingId] = $twins[$adId];
+            }
+        }
+
+        foreach (array_chunk($sources, self::CHUNK, true) as $chunk) {
+            $placed = JobPostingLocation::query()->whereIn('job_posting_id', array_keys($chunk))->distinct()->pluck('job_posting_id')->flip();
+            $missing = array_diff_key($chunk, $placed->all());
+            if ($missing === []) {
+                continue;
+            }
+
+            $from = JobPosting::query()->whereKey(array_values($missing))->with('locations')->get()->keyBy('id');
+
+            DB::transaction(function () use ($missing, $from): void {
+                foreach ($missing as $postingId => $twinId) {
+                    $twin = $from->get($twinId);
+                    if (! $twin instanceof JobPosting || $twin->locations->isEmpty()) {
+                        continue;
+                    }
+
+                    JobPostingLocation::query()->insert($twin->locations->map(static fn (JobPostingLocation $l): array => [
+                        'job_posting_id' => $postingId,
+                        'city' => $l->city,
+                        'country' => $l->country,
+                    ])->all());
+
+                    JobPosting::query()->whereKey($postingId)->update([
+                        'cities' => json_encode($twin->cities, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                        'countries' => json_encode($twin->countries, JSON_THROW_ON_ERROR),
+                    ]);
+                }
+            });
+        }
     }
 
     /**

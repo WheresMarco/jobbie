@@ -6,6 +6,7 @@ use App\Discovery\JobStream\JobStreamSync;
 use App\Enums\CandidateSourceType;
 use App\Enums\Strength;
 use App\Jobs\CollectCandidates;
+use App\Jobs\DiscoverPlatformBoards;
 use App\Jobs\QueueVerification;
 use App\Jobs\SyncJobStream;
 use App\Models\Board;
@@ -157,6 +158,7 @@ it('queues the sources as one chain, JobStream sync first', function (): void {
 
     Bus::assertChained([
         SyncJobStream::class,
+        DiscoverPlatformBoards::class,
         fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::JobStream,
         fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::Prefix,
         fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::CommonCrawl,

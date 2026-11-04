@@ -132,6 +132,7 @@ final class PostingTracker
         // Postings from hidden employers do not count, whether seen or not.
         $visible = static function (Builder $query) use ($since, $hidden): void {
             $query->where('job_postings.active', true)
+                ->whereNull('job_postings.duplicate_of_id')
                 ->when($since, fn (Builder $q, Carbon $since) => $q->where('job_postings.first_seen_at', '>', $since))
                 ->when($hidden !== [], fn (Builder $q) => $q
                     ->leftJoin('boards', 'boards.id', '=', 'job_postings.board_id')

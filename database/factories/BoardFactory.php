@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Enums\BoardKind;
 use App\Enums\BoardStatus;
+use App\Enums\Platform;
 use App\Models\Board;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -42,6 +43,33 @@ class BoardFactory extends Factory
                 'tt_slug' => null,
                 'kind' => BoardKind::Custom,
                 'home_url' => "https://{$host}/",
+            ];
+        });
+    }
+
+    /**
+     * A board on another platform, keyed by its account.
+     */
+    public function on(Platform $platform, ?string $key = null): static
+    {
+        return $this->state(function () use ($platform, $key): array {
+            $key ??= fake()->unique()->slug(1);
+
+            [$host, $site] = match ($platform) {
+                Platform::Varbi => ["{$key}.varbi.com", "https://{$key}.varbi.com/se/"],
+                Platform::SmartRecruiters => ['jobs.smartrecruiters.com', "https://jobs.smartrecruiters.com/{$key}"],
+                Platform::Workday => [explode('/', $key)[0], "https://{$key}"],
+                Platform::Platsbanken => ['arbetsformedlingen.se', 'https://arbetsformedlingen.se/platsbanken/'],
+                Platform::Teamtailor => ["{$key}.teamtailor.com", "https://{$key}.teamtailor.com/"],
+            };
+
+            return [
+                'platform' => $platform,
+                'external_key' => $key,
+                'canonical_host' => $host,
+                'tt_slug' => null,
+                'kind' => null,
+                'home_url' => $site,
             ];
         });
     }

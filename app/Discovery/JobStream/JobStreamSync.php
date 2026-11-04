@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Discovery\JobStream;
 
+use App\Enums\BoardStatus;
 use App\Enums\CandidateSourceType;
+use App\Models\Board;
 use App\Models\Domain;
 use App\Models\PlatsbankenAd;
 use App\Net\DomainName;
+use App\Platforms\Platsbanken;
+use App\Scraping\JobPostingData;
+use App\Scraping\PostingWriter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +23,9 @@ use JsonMachine\JsonDecoder\ExtJsonDecoder;
 use Throwable;
 
 /**
- * Keeps platsbanken_ads in step with JobTech JobStream (source B) and
- * records employer web sites in domains.
+ * Keeps platsbanken_ads in step with JobTech JobStream (source B), records
+ * employer web sites in domains, and keeps the Platsbanken board's
+ * postings in step with the ads.
  *
  * The first run downloads /snapshot (all published ads, roughly 300 MB)
  * to disk and parses it as a stream. Later runs fetch /stream?date=...
@@ -48,6 +54,7 @@ final readonly class JobStreamSync
 
     public function __construct(
         private DomainName $domains,
+        private PostingWriter $writer,
         private string $baseUrl,
         private ?string $apiKey,
         private string $userAgent,
@@ -99,6 +106,10 @@ final readonly class JobStreamSync
     {
         $ads = $removed = $domains = 0;
         $batch = [];
+        $board = Platsbanken::board();
+        $now = Carbon::now();
+        /** @var array<string, true> $seen */
+        $seen = [];
 
         foreach (Items::fromFile($path, ['decoder' => new ExtJsonDecoder(true)]) as $ad) {
             if (! is_array($ad) || ! isset($ad['id'])) {
@@ -107,7 +118,7 @@ final readonly class JobStreamSync
 
             $batch[] = $ad;
             if (count($batch) >= self::CHUNK) {
-                [$a, $r, $d] = $this->store($batch);
+                [$a, $r, $d] = $this->store($batch, $board, $now, $seen);
                 $ads += $a;
                 $removed += $r;
                 $domains += $d;
@@ -116,22 +127,51 @@ final readonly class JobStreamSync
         }
 
         if ($batch !== []) {
-            [$a, $r, $d] = $this->store($batch);
+            [$a, $r, $d] = $this->store($batch, $board, $now, $seen);
             $ads += $a;
             $removed += $r;
             $domains += $d;
         }
 
+        // A snapshot holds every published ad, so anything else has closed.
+        if ($snapshot) {
+            $this->writer->deactivateMissing($board, array_map(strval(...), array_keys($seen)), $now);
+
+            $gone = PlatsbankenAd::query()->whereNull('removed_at')->pluck('id')
+                ->map(strval(...))
+                ->reject(static fn (string $id): bool => isset($seen[$id]));
+            foreach ($gone->chunk(self::CHUNK) as $chunk) {
+                PlatsbankenAd::query()->whereKey($chunk->values()->all())->update(['removed_at' => $now]);
+            }
+        }
+
+        $this->refreshBoard($board, $now);
+
         return new JobStreamResult($snapshot, $ads, $removed, $domains);
+    }
+
+    private function refreshBoard(Board $board, Carbon $now): void
+    {
+        $jobCount = $board->jobPostings()->where('active', true)->count();
+
+        $board->forceFill([
+            'status' => $jobCount > 0 ? BoardStatus::Active : BoardStatus::Empty,
+            'job_count' => $jobCount,
+            'checked_at' => $now,
+            'error' => null,
+        ])->save();
     }
 
     /**
      * @param  list<array<mixed>>  $ads
+     * @param  array<string, true>  $seen  Ids of published ads so far; added to.
      * @return array{int, int, int} ads stored, ads removed, new domains
      */
-    private function store(array $ads): array
+    private function store(array $ads, Board $board, Carbon $now, array &$seen): array
     {
         $rows = $removals = $domainRows = [];
+        /** @var array<string, JobPostingData> $postings */
+        $postings = [];
 
         foreach ($ads as $ad) {
             $id = (string) (is_scalar($ad['id']) ? $ad['id'] : '');
@@ -143,6 +183,11 @@ final readonly class JobStreamSync
                 $removals[$id] = self::date($ad['removed_date'] ?? null) ?? Carbon::now();
 
                 continue;
+            }
+
+            $seen[$id] = true;
+            if (($posting = Platsbanken::posting($ad)) !== null) {
+                $postings[$id] = $posting;
             }
 
             $employer = is_array($ad['employer'] ?? null) ? $ad['employer'] : [];
@@ -174,7 +219,7 @@ final readonly class JobStreamSync
             }
         }
 
-        DB::transaction(function () use ($rows, $removals): void {
+        DB::transaction(function () use ($rows, $removals, $postings, $board, $now): void {
             if ($rows !== []) {
                 PlatsbankenAd::query()->upsert(array_values($rows), ['id'], [
                     'apply_host', 'apply_url', 'org_nr', 'employer_name', 'title_normalized', 'published_at', 'removed_at',
@@ -184,6 +229,9 @@ final readonly class JobStreamSync
             foreach ($removals as $id => $removedAt) {
                 PlatsbankenAd::query()->whereKey((string) $id)->update(['removed_at' => $removedAt]);
             }
+
+            $this->writer->write($board, $postings, $now, ['in_platsbanken' => true]);
+            $this->writer->deactivate($board, array_map(strval(...), array_keys($removals)), $now);
         });
 
         $newDomains = $domainRows === [] ? 0 : Domain::query()->insertOrIgnore(array_values($domainRows));
