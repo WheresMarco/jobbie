@@ -16,11 +16,9 @@
                 </a>
                 @auth
                     <nav class="-mx-1 flex w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-sm sm:mx-0 sm:w-auto">
-                        <a href="{{ route('jobs') }}" wire:navigate
-                           @class(['rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('jobs') && ! request()->boolean('unseen')])>{{ __('ui.nav.jobs') }}</a>
                         <a href="{{ route('jobs', ['unseen' => 1]) }}" wire:navigate
                            @class(['flex items-center gap-1.5 rounded-md px-3 py-1.5 hover:bg-stone-100', 'bg-stone-100 font-medium' => request()->routeIs('jobs') && request()->boolean('unseen')])>
-                            {{ __('ui.nav.unseen') }}
+                            {{ __('ui.nav.jobs') }}
                             <livewire:unseen-counter />
                         </a>
                         <a href="{{ route('mine') }}" wire:navigate
