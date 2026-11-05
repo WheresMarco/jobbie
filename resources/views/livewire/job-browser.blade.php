@@ -96,50 +96,6 @@
                     </label>
                 @endforeach
             </fieldset>
-
-            <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" wire:model.live="new" class="rounded border-stone-300 text-accent-600">
-                <span class="flex-1">{{ __('ui.filters.new', ['days' => config('radar.new_job_days')]) }}</span>
-                <span class="text-xs tabular-nums text-stone-500" data-facet="new">{{ $facets->new }}</span>
-            </label>
-
-            <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" wire:model.live="missing" class="rounded border-stone-300 text-accent-600">
-                <span class="flex-1">{{ __('ui.filters.not_in_platsbanken') }}</span>
-                <span class="text-xs tabular-nums text-stone-500" data-facet="missing">{{ $facets->notInPlatsbanken }}</span>
-            </label>
-
-            <fieldset>
-                <legend class="mb-1 text-sm font-medium">{{ __('ui.filters.platform') }}</legend>
-                <label class="flex items-center gap-2 py-0.5 text-sm">
-                    <input type="radio" wire:model.live="platform" value="" class="border-stone-300 text-accent-600">
-                    <span class="flex-1">{{ __('ui.filters.all') }}</span>
-                </label>
-                @foreach (\App\Enums\Platform::cases() as $option)
-                    @if (($facets->platforms[$option->value] ?? 0) > 0 || $platform === $option->value)
-                        <label class="flex items-center gap-2 py-0.5 text-sm">
-                            <input type="radio" wire:model.live="platform" value="{{ $option->value }}" class="border-stone-300 text-accent-600">
-                            <span class="flex-1">{{ __("radar.platforms.{$option->value}") }}</span>
-                            <span class="text-xs tabular-nums text-stone-500" data-facet="platform-{{ $option->value }}">{{ $facets->platforms[$option->value] ?? 0 }}</span>
-                        </label>
-                    @endif
-                @endforeach
-            </fieldset>
-
-            <fieldset>
-                <legend class="mb-1 text-sm font-medium">{{ __('ui.filters.kind') }}</legend>
-                <label class="flex items-center gap-2 py-0.5 text-sm">
-                    <input type="radio" wire:model.live="kind" value="" class="border-stone-300 text-accent-600">
-                    <span class="flex-1">{{ __('ui.filters.all') }}</span>
-                </label>
-                @foreach (\App\Enums\BoardKind::cases() as $option)
-                    <label class="flex items-center gap-2 py-0.5 text-sm">
-                        <input type="radio" wire:model.live="kind" value="{{ $option->value }}" class="border-stone-300 text-accent-600">
-                        <span class="flex-1">{{ __("radar.kinds.{$option->value}") }}</span>
-                        <span class="text-xs tabular-nums text-stone-500" data-facet="kind-{{ $option->value }}">{{ $facets->kinds[$option->value] ?? 0 }}</span>
-                    </label>
-                @endforeach
-            </fieldset>
         </div>
     </aside>
 

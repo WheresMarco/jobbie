@@ -23,15 +23,41 @@
                             @if ($profile->remote !== 'any') · {{ __("ui.match.remote.{$profile->remote}") }}@endif
                         </p>
                         <p class="mt-3 text-sm leading-relaxed text-stone-700">{{ $profile->summary }}</p>
-                        @foreach (['roles' => $profile->roles, 'skills' => $profile->skills] as $label => $values)
-                            @if ($values !== [])
-                                <h3 class="mt-4 text-xs font-semibold uppercase tracking-wide text-stone-500">{{ __("ui.match.{$label}") }}</h3>
-                                <ul class="mt-1.5 flex flex-wrap gap-1.5 text-xs">
-                                    @foreach ($values as $value)
-                                        <li class="rounded-full bg-stone-100 px-2 py-0.5 text-stone-700">{{ $value }}</li>
-                                    @endforeach
-                                </ul>
-                            @endif
+                        @foreach (['roles' => $profile->roles, 'skills' => $profile->skills] as $list => $values)
+                            <h3 class="mt-4 text-xs font-semibold uppercase tracking-wide text-stone-500">{{ __("ui.match.{$list}") }}</h3>
+                            <ul class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs" data-list="{{ $list }}">
+                                @foreach ($values as $value)
+                                    @php($own = \App\Matching\Profile::contains($additions[$list], $value))
+                                    <li @class([
+                                            'inline-flex items-center gap-0.5 rounded-full py-0.5 pl-2',
+                                            'pr-2' => $resume->status->busy(),
+                                            'pr-1' => ! $resume->status->busy(),
+                                            'bg-accent-50 text-accent-700' => $own,
+                                            'bg-stone-100 text-stone-700' => ! $own,
+                                        ]) @if ($own) title="{{ __('ui.match.own') }}" data-own @endif>
+                                        {{ $value }}
+                                        @unless ($resume->status->busy())
+                                            <button type="button" wire:click="removeItem(@js($list), @js($value))"
+                                                    @class(['rounded-full px-1 leading-none', 'text-accent-700 hover:bg-accent-100' => $own, 'text-stone-400 hover:bg-stone-200 hover:text-stone-700' => ! $own])
+                                                    aria-label="{{ __('ui.match.remove_item', ['item' => $value]) }}">&times;</button>
+                                        @endunless
+                                    </li>
+                                @endforeach
+                                @unless ($resume->status->busy())
+                                    <li x-data="{ open: false }" wire:key="add-{{ $list }}">
+                                        <button type="button" x-show="! open" @click="open = true; $nextTick(() => $refs.input.focus())"
+                                                class="rounded-full border border-dashed border-stone-300 px-2 py-0.5 text-stone-600 hover:border-accent-600 hover:text-accent-700">+ {{ __('ui.match.add') }}</button>
+                                        <form x-show="open" style="display: none" wire:submit="add(@js($list))" @keydown.escape="open = false" class="inline-flex items-center gap-1">
+                                            <input type="text" x-ref="input" wire:model="adding.{{ $list }}" maxlength="{{ \App\Livewire\ResumeMatches::MAX_ADDITION_LENGTH }}"
+                                                   aria-label="{{ __("ui.match.add_{$list}") }}" placeholder="{{ __("ui.match.add_{$list}") }}"
+                                                   class="w-40 rounded-full border border-stone-300 px-2 py-0.5 text-xs focus:border-accent-600 focus:outline-none">
+                                            <button type="submit" class="rounded-full bg-stone-900 px-2 py-0.5 font-medium text-white hover:bg-stone-700">{{ __('ui.match.add') }}</button>
+                                            <button type="button" @click="open = false" class="px-1 text-stone-500 hover:text-stone-800" aria-label="{{ __('ui.match.add_cancel') }}">&times;</button>
+                                        </form>
+                                    </li>
+                                @endunless
+                            </ul>
+                            @error("adding.{$list}") <p class="mt-1 text-xs text-red-700">{{ $message }}</p> @enderror
                         @endforeach
                     @else
                         <h2 id="profile-heading" class="font-semibold">{{ $resume->filename }}</h2>
@@ -87,9 +113,12 @@
                         </div>
                 @endswitch
                 @if (! $resume->status->busy() && $profile)
+                    @if ($resume->edited)
+                        <p class="mt-2 text-amber-800" data-edited>{{ __('ui.match.edited') }}</p>
+                    @endif
                     <div class="mt-2 flex flex-wrap items-center gap-3">
-                        <button type="button" wire:click="searchAgain" class="rounded-lg bg-stone-900 px-3 py-1.5 font-medium text-white hover:bg-stone-700">{{ __('ui.match.search_again') }}</button>
-                        <span class="text-stone-500">{{ __('ui.match.search_again_hint') }}</span>
+                        <button type="button" wire:click="searchAgain" class="rounded-lg bg-stone-900 px-3 py-1.5 font-medium text-white hover:bg-stone-700">{{ $resume->edited ? __('ui.match.rematch') : __('ui.match.search_again') }}</button>
+                        <span class="text-stone-500">{{ $resume->edited ? __('ui.match.rematch_hint') : __('ui.match.search_again_hint') }}</span>
                     </div>
                     @error('run') <p class="mt-1 text-red-700">{{ $message }}</p> @enderror
                 @endif

@@ -6,6 +6,7 @@ namespace App\Livewire;
 
 use App\Livewire\Concerns\MarksPostings;
 use App\Matching\Contracts\LanguageModel;
+use App\Matching\Profile;
 use App\Matching\ResumeMatcher;
 use App\Models\JobPosting;
 use App\Models\Resume;
@@ -31,9 +32,22 @@ final class ResumeMatches extends Component
 
     public const int MAX_PREFERENCES = 1000;
 
+    /** Per list, for roles and skills the user adds. */
+    public const int MAX_ADDITIONS = 15;
+
+    public const int MAX_ADDITION_LENGTH = 60;
+
     public ?TemporaryUploadedFile $cv = null;
 
     public string $preferences = '';
+
+    /**
+     * What is being typed into each list, by list. Set by the browser, so
+     * anything can come in.
+     *
+     * @var array<string, mixed>
+     */
+    public array $adding = ['roles' => '', 'skills' => ''];
 
     /** Also show matches below the minimum score. */
     #[Url(except: false)]
@@ -112,13 +126,56 @@ final class ResumeMatches extends Component
         }
     }
 
+    /**
+     * Add a role or skill to the profile, or bring back one of Claude's.
+     */
+    public function add(ResumeMatcher $matcher, string $list): void
+    {
+        $resume = $this->resume();
+        $profile = $resume?->profile();
+        abort_unless(in_array($list, ['roles', 'skills'], true) && $resume !== null && $profile !== null && ! $resume->status->busy(), 404);
+
+        $typed = $this->adding[$list] ?? '';
+        $value = trim((string) preg_replace('/\s+/u', ' ', is_string($typed) ? $typed : ''));
+        if ($value === '') {
+            return;
+        }
+
+        $error = match (true) {
+            mb_strlen($value) > self::MAX_ADDITION_LENGTH => __('ui.match.add_too_long', ['max' => self::MAX_ADDITION_LENGTH]),
+            Profile::contains($profile->{$list}, $value) => __('ui.match.add_exists', ['value' => $value]),
+            count($resume->additions()[$list]) >= self::MAX_ADDITIONS
+                && ! Profile::contains($resume->removals()[$list], $value) => __('ui.match.add_too_many', ['max' => self::MAX_ADDITIONS]),
+            default => null,
+        };
+        if ($error !== null) {
+            $this->addError("adding.{$list}", $error);
+
+            return;
+        }
+
+        $matcher->addToProfile($resume, $list, $value);
+        $this->adding[$list] = '';
+    }
+
+    /**
+     * Remove a role or skill from the profile, the user's own or Claude's.
+     */
+    public function removeItem(ResumeMatcher $matcher, string $list, string $value): void
+    {
+        $resume = $this->resume();
+        abort_unless(in_array($list, ['roles', 'skills'], true) && $resume !== null && ! $resume->status->busy(), 404);
+
+        $matcher->removeFromProfile($resume, $list, $value);
+    }
+
     public function remove(ResumeMatcher $matcher): void
     {
         $resume = $this->resume();
         if ($resume !== null) {
             $matcher->remove($resume);
         }
-        $this->reset('preferences', 'limit');
+        $this->reset('preferences', 'adding', 'limit');
     }
 
     public function showMore(): void
@@ -156,6 +213,7 @@ final class ResumeMatches extends Component
             'enabled' => self::enabled(),
             'resume' => $resume,
             'profile' => $resume?->profile(),
+            'additions' => $resume?->additions() ?? ['roles' => [], 'skills' => []],
             'matches' => $shown->take($this->limit)->all(),
             'hasMore' => $shown->count() > $this->limit,
             'strongCount' => $strong->count(),

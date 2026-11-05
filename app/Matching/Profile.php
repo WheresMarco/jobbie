@@ -78,6 +78,62 @@ final readonly class Profile
     }
 
     /**
+     * With the user's changes. Added roles and skills come last in the
+     * lists shown and first in the search terms, so the term limit never
+     * cuts them. Removed ones go, and so do Claude's search terms that
+     * contain them: removing PHP also drops "PHP-utvecklare".
+     *
+     * @param  array{roles: list<string>, skills: list<string>}  $added
+     * @param  array{roles: list<string>, skills: list<string>}  $removed
+     */
+    public function edited(array $added, array $removed): self
+    {
+        $gone = array_filter(array_map(self::words(...), [...$removed['roles'], ...$removed['skills']]));
+        $keep = static fn (array $values, array $removed): array => array_values(array_filter(
+            $values,
+            static fn (string $v): bool => ! self::contains($removed, $v),
+        ));
+        $keepTerms = static fn (array $terms): array => array_values(array_filter(
+            $terms,
+            static function (string $term) use ($gone): bool {
+                $words = self::words($term);
+                foreach ($gone as $removed) {
+                    if (str_contains($words, $removed)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            },
+        ));
+
+        return new self(
+            headline: $this->headline,
+            summary: $this->summary,
+            seniority: $this->seniority,
+            years: $this->years,
+            roles: self::merge($keep($this->roles, $removed['roles']), $added['roles']),
+            skills: self::merge($keep($this->skills, $removed['skills']), $added['skills']),
+            languages: $this->languages,
+            locations: $this->locations,
+            countries: $this->countries,
+            remote: $this->remote,
+            titleTerms: self::merge($added['roles'], $keepTerms($this->titleTerms)),
+            keywords: self::merge($added['skills'], $keepTerms($this->keywords)),
+        );
+    }
+
+    /**
+     * Whether a list already holds a value, ignoring case.
+     *
+     * @param  list<string>  $values
+     */
+    public static function contains(array $values, string $value): bool
+    {
+        return in_array(mb_strtolower(trim($value)), array_map(mb_strtolower(...), $values), true);
+    }
+
+    /**
      * The stored shape, which is also the shape Claude returns.
      *
      * @return array{headline: string, summary: string, seniority: string, years: int|null, roles: list<string>, skills: list<string>, languages: list<string>, locations: list<string>, countries: list<string>, remote: string, title_terms: list<string>, keywords: list<string>}
@@ -132,5 +188,33 @@ final readonly class Profile
             ],
             'additionalProperties' => false,
         ];
+    }
+
+    /**
+     * Both lists in order, without repeats in any case.
+     *
+     * @param  list<string>  $first
+     * @param  list<string>  $then
+     * @return list<string>
+     */
+    private static function merge(array $first, array $then): array
+    {
+        $merged = [];
+        foreach ([...$first, ...$then] as $value) {
+            $merged[mb_strtolower($value)] ??= $value;
+        }
+
+        return array_values($merged);
+    }
+
+    /**
+     * Lower-case words between spaces, for finding one term in another:
+     * " php utvecklare " holds " php ". Empty without any words.
+     */
+    private static function words(string $value): string
+    {
+        $words = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return $words === [] ? '' : ' '.implode(' ', $words).' ';
     }
 }

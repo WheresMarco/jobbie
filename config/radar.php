@@ -136,7 +136,7 @@ return [
         'api_key' => env('ANTHROPIC_API_KEY'),
         'model' => env('RADAR_MATCH_MODEL', 'claude-haiku-5-5'),
         'effort' => env('RADAR_MATCH_EFFORT', 'medium'),
-        'candidates' => (int) env('RADAR_MATCH_CANDIDATES', 100),
+        'candidates' => (int) env('RADAR_MATCH_CANDIDATES', 300),
         'chunk_size' => (int) env('RADAR_MATCH_CHUNK_SIZE', 20),
         'min_score' => (int) env('RADAR_MATCH_MIN_SCORE', 50),
         'daily_runs' => (int) env('RADAR_MATCH_DAILY_RUNS', 10),

@@ -78,12 +78,56 @@ final readonly class ResumeMatcher
 
     /**
      * Search again with the same profile. Postings scored before keep their
-     * scores; only new candidates are sent to Claude.
+     * scores and only new candidates are sent to Claude, unless the user
+     * has edited the profile since: then everything is scored again.
      */
     public function refresh(Resume $resume): void
     {
-        $this->restart($resume, ResumeStatus::Matching, keepMatches: true);
+        $this->restart($resume, ResumeStatus::Matching, keepMatches: ! $resume->edited);
         $this->dispatchScoring($resume);
+    }
+
+    /**
+     * Add a role or skill to the profile: back again if it was Claude's and
+     * the user removed it, else as the user's own. The matches stay as they
+     * are until the user matches again.
+     *
+     * @param  'roles'|'skills'  $list
+     */
+    public function addToProfile(Resume $resume, string $list, string $value): void
+    {
+        $value = trim($value);
+        $additions = $resume->additions();
+        $removals = $resume->removals();
+
+        if (Profile::contains($removals[$list], $value)) {
+            $removals[$list] = self::without($removals[$list], $value);
+        } else {
+            $additions[$list][] = $value;
+        }
+
+        $resume->forceFill(['additions' => $additions, 'removals' => $removals, 'edited' => true])->save();
+    }
+
+    /**
+     * Remove a role or skill from the profile, the user's own or Claude's.
+     *
+     * @param  'roles'|'skills'  $list
+     */
+    public function removeFromProfile(Resume $resume, string $list, string $value): void
+    {
+        $additions = $resume->additions();
+        $removals = $resume->removals();
+
+        if (Profile::contains($additions[$list], $value)) {
+            $additions[$list] = self::without($additions[$list], $value);
+        } elseif (Profile::contains($resume->extractedProfile()->{$list} ?? [], $value)) {
+            $removals[$list][] = trim($value);
+        } else {
+            return;
+        }
+
+        $resume->forceFill(['additions' => $additions, 'removals' => $removals, 'edited' => true])->save();
     }
 
     public function remove(Resume $resume): void
@@ -107,7 +151,7 @@ final readonly class ResumeMatcher
             $pdf ??= $disk->exists($resume->path()) ? (string) $disk->get($resume->path()) : null;
             $profile = match (true) {
                 $pdf !== null => $this->extractor->extract($pdf, $resume->preferences),
-                $resume->profile() !== null => $this->extractor->revise($resume->profile(), $resume->preferences),
+                $resume->extractedProfile() !== null => $this->extractor->revise($resume->extractedProfile(), $resume->preferences),
                 default => throw new MatchingException('There is neither a CV nor a profile to work from.'),
             };
         } finally {
@@ -251,10 +295,20 @@ final readonly class ResumeMatcher
         if (! $keepMatches) {
             $resume->matches()->delete();
             $resume->matched_at = null;
+            $resume->edited = false;
             $resume->save();
         }
 
         return $resume;
+    }
+
+    /**
+     * @param  list<string>  $values
+     * @return list<string>
+     */
+    private static function without(array $values, string $value): array
+    {
+        return array_values(array_filter($values, static fn (string $v): bool => ! Profile::contains([$value], $v)));
     }
 
     private function isCurrent(Resume $resume): bool

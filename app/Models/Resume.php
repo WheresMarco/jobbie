@@ -21,6 +21,9 @@ use Illuminate\Support\Carbon;
  * @property string $filename
  * @property ResumeStatus $status
  * @property array<string, mixed>|null $profile
+ * @property array<string, mixed>|null $additions
+ * @property array<string, mixed>|null $removals
+ * @property bool $edited
  * @property string|null $preferences
  * @property string|null $error
  * @property int $run
@@ -30,7 +33,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
-#[Fillable(['user_id', 'filename', 'status', 'profile', 'preferences', 'error', 'run', 'to_score', 'scored', 'matched_at'])]
+#[Fillable(['user_id', 'filename', 'status', 'profile', 'additions', 'removals', 'edited', 'preferences', 'error', 'run', 'to_score', 'scored', 'matched_at'])]
 class Resume extends Model
 {
     /** @var array<string, mixed> */
@@ -38,6 +41,7 @@ class Resume extends Model
         'run' => 0,
         'to_score' => 0,
         'scored' => 0,
+        'edited' => false,
     ];
 
     /**
@@ -48,6 +52,9 @@ class Resume extends Model
         return [
             'status' => ResumeStatus::class,
             'profile' => 'array',
+            'additions' => 'array',
+            'removals' => 'array',
+            'edited' => 'boolean',
             'run' => 'integer',
             'to_score' => 'integer',
             'scored' => 'integer',
@@ -63,9 +70,54 @@ class Resume extends Model
         return "resumes/{$this->id}.pdf";
     }
 
+    /**
+     * The profile to match with: Claude's, with the user's changes.
+     */
     public function profile(): ?Profile
     {
+        return $this->extractedProfile()?->edited($this->additions(), $this->removals());
+    }
+
+    /**
+     * The profile as Claude wrote it.
+     */
+    public function extractedProfile(): ?Profile
+    {
         return $this->profile === null ? null : Profile::fromArray($this->profile);
+    }
+
+    /**
+     * Roles and skills the user added.
+     *
+     * @return array{roles: list<string>, skills: list<string>}
+     */
+    public function additions(): array
+    {
+        return self::lists($this->additions);
+    }
+
+    /**
+     * Roles and skills of Claude's that the user removed.
+     *
+     * @return array{roles: list<string>, skills: list<string>}
+     */
+    public function removals(): array
+    {
+        return self::lists($this->removals);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $stored
+     * @return array{roles: list<string>, skills: list<string>}
+     */
+    private static function lists(?array $stored): array
+    {
+        $list = static fn (string $key): array => array_values(array_filter(
+            is_array($stored[$key] ?? null) ? $stored[$key] : [],
+            is_string(...),
+        ));
+
+        return ['roles' => $list('roles'), 'skills' => $list('skills')];
     }
 
     /**

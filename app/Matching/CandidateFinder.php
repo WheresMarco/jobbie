@@ -25,7 +25,7 @@ final readonly class CandidateFinder
     /** InnoDB's default innodb_ft_min_token_size. */
     private const int MIN_TERM_LENGTH = 3;
 
-    private const int MAX_TERMS = 40;
+    private const int MAX_TERMS = 60;
 
     /**
      * Ids best first. Leaves out postings and employers the user has

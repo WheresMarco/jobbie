@@ -168,6 +168,92 @@ it('revises the profile without the CV when the preferences change and scores ev
         ->and($resume->matches()->count())->toBe(3);
 });
 
+it('adds roles and skills of the user\'s own and scores everything against them', function (): void {
+    uploadCv();
+    $platform = matchPosting($this->backend->board, 'Plattformsingenjör', 'Moln AB', 'Vi kör Kubernetes.');
+    $before = count($this->model->requests);
+
+    Livewire::test(ResumeMatches::class)
+        ->set('adding.skills', '  Kubernetes ')
+        ->call('add', 'skills')
+        ->assertHasNoErrors()
+        ->assertSet('adding.skills', '')
+        ->set('adding.roles', 'Plattformsingenjör')
+        ->call('add', 'roles')
+        ->assertSeeHtml('data-own')
+        ->assertSeeHtml('data-edited')
+        ->assertSee('Matcha om')
+        ->call('searchAgain')
+        ->assertDontSeeHtml('data-edited');
+
+    $resume = Resume::query()->sole();
+    expect($resume->additions())->toBe(['roles' => ['Plattformsingenjör'], 'skills' => ['Kubernetes']])
+        ->and($resume->edited)->toBeFalse()
+        // Found by the new terms, and the old matches scored again too.
+        ->and(array_values($this->model->postingsIn($before)))->toEqualCanonicalizing(['Backendutvecklare', 'Plattformsingenjör', 'Supporttekniker', 'Webbutvecklare'])
+        ->and($this->model->requests[$before]['content'][0]['text'])->toContain('Kubernetes')->toContain('Plattformsingenjör')
+        ->and($resume->matches()->where('job_posting_id', $platform->id)->exists())->toBeTrue();
+});
+
+it('removes additions and refuses repeats, long values and too many', function (): void {
+    uploadCv();
+
+    Livewire::test(ResumeMatches::class)->set('adding.skills', 'php')->call('add', 'skills')->assertHasErrors('adding.skills')->assertSee('”php” finns redan.');
+    Livewire::test(ResumeMatches::class)->set('adding.skills', str_repeat('a', 61))->call('add', 'skills')->assertHasErrors('adding.skills');
+    Livewire::test(ResumeMatches::class)->set('adding.roles', '   ')->call('add', 'roles')->assertHasNoErrors();
+    Livewire::test(ResumeMatches::class)->call('add', 'languages')->assertStatus(404);
+    expect(Resume::query()->sole()->edited)->toBeFalse();
+
+    Livewire::test(ResumeMatches::class)
+        ->set('adding.skills', 'Docker')
+        ->call('add', 'skills')
+        ->call('removeItem', 'skills', 'docker')
+        ->assertDontSeeHtml('data-own');
+    expect(Resume::query()->sole()->additions()['skills'])->toBe([]);
+
+    Resume::query()->sole()->update(['additions' => ['roles' => [], 'skills' => array_map(fn (int $i): string => "Skill {$i}", range(1, ResumeMatches::MAX_ADDITIONS))]]);
+    Livewire::test(ResumeMatches::class)->set('adding.skills', 'Docker')->call('add', 'skills')->assertHasErrors('adding.skills');
+});
+
+it('removes Claude\'s roles and skills, and brings them back when added again', function (): void {
+    uploadCv();
+
+    Livewire::test(ResumeMatches::class)
+        ->call('removeItem', 'skills', 'Laravel')
+        ->call('removeItem', 'roles', 'Webbutvecklare')
+        ->call('removeItem', 'skills', 'Not in the profile')
+        ->assertSeeHtml('data-edited')
+        ->assertDontSeeHtml('Ta bort Laravel')
+        ->assertSeeHtml('Ta bort PHP');
+
+    $resume = Resume::query()->sole();
+    expect($resume->removals())->toBe(['roles' => ['Webbutvecklare'], 'skills' => ['Laravel']])
+        ->and($resume->profile()->skills)->toBe(['PHP'])
+        ->and($resume->profile()->keywords)->toBe(['php'])
+        // Claude's own profile is untouched.
+        ->and($resume->profile['skills'])->toBe(['PHP', 'Laravel']);
+
+    // Not an addition of the user's own: it is simply back.
+    Livewire::test(ResumeMatches::class)->set('adding.skills', 'laravel')->call('add', 'skills')->assertHasNoErrors()->assertDontSeeHtml('data-own');
+    expect(Resume::query()->sole()->removals()['skills'])->toBe([])
+        ->and(Resume::query()->sole()->additions()['skills'])->toBe([]);
+});
+
+it('keeps additions apart from Claude\'s profile when the preferences change', function (): void {
+    uploadCv();
+    Livewire::test(ResumeMatches::class)->set('adding.skills', 'Docker')->call('add', 'skills');
+    $before = count($this->model->requests);
+
+    Livewire::test(ResumeMatches::class)->set('preferences', 'Distans')->call('savePreferences')->assertSee('Docker');
+
+    $resume = Resume::query()->sole();
+    expect($this->model->requests[$before]['content'][0]['text'])->not->toContain('Docker')
+        ->and($this->model->requests[$before + 1]['content'][0]['text'])->toContain('Docker')
+        ->and($resume->profile['skills'])->toBe(['PHP', 'Laravel'])
+        ->and($resume->additions()['skills'])->toBe(['Docker'])
+        ->and($resume->edited)->toBeFalse();
+});
+
 it('tells the user when the file is not a CV', function (): void {
     $this->model->profile['is_cv'] = false;
 
@@ -190,7 +276,7 @@ it('fails the run when Claude cannot score anything, keeping the profile', funct
 
     $resume->refresh();
     expect($resume->status)->toBe(ResumeStatus::Failed)
-        ->and($resume->error)->toBe('Claude kunde inte bedöma annonserna. Försök igen om en stund.')
+        ->and($resume->error)->toBe('Jobbie AI kunde inte bedöma annonserna. Försök igen om en stund.')
         ->and($resume->profile)->not->toBeNull();
 });
 
