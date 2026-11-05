@@ -30,7 +30,6 @@ final readonly class JobFilters
         public ?int $publishedDays = null,
         public bool $newOnly = false,
         public ?BoardKind $kind = null,
-        public bool $notInPlatsbanken = false,
         public bool $unseenOnly = false,
         public ?Platform $platform = null,
     ) {
@@ -50,7 +49,6 @@ final readonly class JobFilters
         string $published = '',
         bool $newOnly = false,
         string $kind = '',
-        bool $notInPlatsbanken = false,
         bool $unseenOnly = false,
         string $platform = '',
     ): self {
@@ -65,7 +63,6 @@ final readonly class JobFilters
             publishedDays: in_array((int) $published, self::PUBLISHED_OPTIONS, true) ? (int) $published : null,
             newOnly: $newOnly,
             kind: BoardKind::tryFrom($kind),
-            notInPlatsbanken: $notInPlatsbanken,
             unseenOnly: $unseenOnly,
             platform: Platform::tryFrom($platform),
         );
@@ -88,7 +85,7 @@ final readonly class JobFilters
     {
         return md5(serialize([
             $this->terms(), $this->country, $this->city, $this->remote, $this->department,
-            $this->publishedDays, $this->newOnly, $this->kind?->value, $this->notInPlatsbanken, $this->unseenOnly,
+            $this->publishedDays, $this->newOnly, $this->kind?->value, $this->unseenOnly,
             $this->platform?->value,
         ]));
     }

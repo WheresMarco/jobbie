@@ -80,7 +80,6 @@ final readonly class JobSearch
             new: $facets['new'] ?? 0,
             kinds: $facets['kinds'] ?? [],
             platforms: $facets['platforms'] ?? [],
-            notInPlatsbanken: $facets['notInPlatsbanken'] ?? 0,
             unseen: $facets['unseen'] ?? 0,
         );
 
@@ -115,7 +114,7 @@ final readonly class JobSearch
     }
 
     /**
-     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, platforms: array<string, int>, notInPlatsbanken: int, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
+     * @return array{total: int, facets: array{countries: array<string, int>, cities: array<string, int>, remote: array<string, int>, departments: array<string, int>, published: array<int, int>, new: int, kinds: array<string, int>, platforms: array<string, int>, unseen: int}, groups: list<array{employer: string, total: int, remote: int, cities: list<string>, ids: list<int>}>, ids: list<int>, hasMore: bool}
      */
     private function summarize(JobFilters $filters, bool $grouped, int $limit, ?UserMarks $marks): array
     {
@@ -141,7 +140,6 @@ final readonly class JobSearch
         $newOnly = $filters->newOnly;
         $kind = $filters->kind?->value;
         $platform = $filters->platform?->value;
-        $notInPlatsbanken = $filters->notInPlatsbanken;
         $unseenOnly = $filters->unseenOnly && $marks !== null;
         $tracking = $marks !== null;
         $statuses = $marks->statuses ?? [];
@@ -153,7 +151,7 @@ final readonly class JobSearch
         [$rowCountriesById, $rowCitiesById] = $this->locations($rows);
 
         $countries = $cities = $remotes = $departments = $published = $kinds = $platforms = [];
-        $newCount = $missingCount = $unseenCount = $total = 0;
+        $newCount = $unseenCount = $total = 0;
         // Per employer: postings, fully remote postings and row indexes.
         $employerTotal = $employerRemote = $employerRows = [];
         // Row index => posted_at, for the flat list.
@@ -162,7 +160,7 @@ final readonly class JobSearch
         // Local copies: this loop runs once per posting.
         $remoteOptions = self::REMOTE_OPTIONS;
 
-        foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt, $inPlatsbanken]) {
+        foreach ($rows as $index => [$id, $boardId, $company, $rowRemote, $rowDepartment, $rowPostedAt, $firstSeenAt]) {
             // Hidden postings and employers count nowhere.
             if (isset($hiddenIds[$id]) || ($hiddenEmployers !== [] && isset($hiddenEmployers[$company ?? ($boardName[$boardId] ?? '')]))) {
                 continue;
@@ -214,10 +212,6 @@ final readonly class JobSearch
                 $failed = 'platform';
                 $failures++;
             }
-            if ($notInPlatsbanken && $inPlatsbanken) {
-                $failed = 'platsbanken';
-                $failures++;
-            }
             if ($unseenOnly && ! $isUnseen) {
                 $failed = 'unseen';
                 $failures++;
@@ -260,9 +254,6 @@ final readonly class JobSearch
             }
             if ($failed === null || $failed === 'platform') {
                 $platforms[$rowPlatform] = ($platforms[$rowPlatform] ?? 0) + 1;
-            }
-            if (($failed === null || $failed === 'platsbanken') && ! $inPlatsbanken) {
-                $missingCount++;
             }
             if (($failed === null || $failed === 'unseen') && $isUnseen) {
                 $unseenCount++;
@@ -336,7 +327,6 @@ final readonly class JobSearch
                 'new' => $newCount,
                 'kinds' => $kinds,
                 'platforms' => $platforms,
-                'notInPlatsbanken' => $missingCount,
                 'unseen' => $unseenCount,
             ],
             'groups' => $groups,
@@ -407,7 +397,6 @@ final readonly class JobSearch
             ->select([
                 'job_postings.id', 'job_postings.board_id', 'job_postings.company', 'job_postings.remote',
                 'job_postings.department', 'job_postings.posted_at', 'job_postings.first_seen_at',
-                'job_postings.in_platsbanken',
             ])
         ;
 

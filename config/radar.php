@@ -67,16 +67,19 @@ return [
 
     /*
     | Recruitment systems besides Teamtailor. Discovery creates a board for
-    | every account on these platforms that a Platsbanken ad links to.
-    | Accounts on platforms used by multinationals (SmartRecruiters,
-    | Workday) are narrowed to postings in this country.
+    | every account on these platforms that a Platsbanken ad links to, and
+    | on Greenhouse, Lever and Ashby for every account in Common Crawl.
+    | Accounts on platforms used across the world (SmartRecruiters, Workday,
+    | Greenhouse, Lever, Ashby) are narrowed to postings in this country,
+    | and boards there without any are rechecked every `empty_recheck_days`.
     */
     'platforms' => [
         'enabled' => array_values(array_filter(explode(',', (string) env(
             'RADAR_PLATFORMS',
-            'varbi,smartrecruiters,workday',
+            'varbi,smartrecruiters,workday,greenhouse,lever,ashby',
         )))),
         'country' => env('RADAR_COUNTRY', 'SE'),
+        'empty_recheck_days' => (int) env('RADAR_EMPTY_RECHECK_DAYS', 7),
     ],
 
     'jobstream' => [

@@ -1,6 +1,6 @@
 # Jobbie
 
-Laravel-applikation som samlar lediga jobb i Sverige och visar dem i ett filtrerbart webbgränssnitt. Annonserna hämtas direkt från arbetsgivarnas rekryteringssystem (Teamtailor, Varbi, SmartRecruiters och Workday) och från Platsbanken. För Teamtailor hittas även karriärsidor på egen domän (till exempel `career.foretag.se`).
+Laravel-applikation som samlar lediga jobb i Sverige och visar dem i ett filtrerbart webbgränssnitt. Annonserna hämtas direkt från arbetsgivarnas rekryteringssystem (Teamtailor, Varbi, SmartRecruiters, Workday, Greenhouse, Lever och Ashby) och från Platsbanken. För Teamtailor hittas även karriärsidor på egen domän (till exempel `career.foretag.se`).
 
 Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell), Fas 3 (skrapning), Fas 4 (verifiering), Fas 5 (källorna A till G), Fas 6 (deduplicering), Fas 7 (schemaläggning och statistik), Fas 8 (webbgränssnitt) och Fas 9 (överlapp mot Platsbanken). Därefter har fler källor än Teamtailor lagts till (se Plattformar).
 
@@ -49,10 +49,10 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
 | `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
 | `radar:smoke {värdar?*}` | Manuellt röktest mot riktiga karriärsidor (standard tre kända). Verifierar och läser flöde och RSS utan att skriva till databasen. Ingår inte i CI |
-| `radar:match-platsbanken` | Markerar annonser som även finns i Platsbanken och döljer Platsbankens dubbletter (körs varje natt) |
+| `radar:match-platsbanken` | Döljer Platsbankens kopior av annonser som även läses från arbetsgivarens eget system (körs varje natt) |
 | `radar:stats` | Kandidater per källa och steg, aktiva karriärsidor och annonser per källa, fördelning per typ och status, verifierade per prefix och TXT-kunder utan hittad sida |
 | `radar:match {e-post} {cv?}` | Matchar ett CV (PDF) mot annonserna med Claude, utan kön, och listar de bästa matchningarna. Utan fil matchas kontots nuvarande profil mot nya annonser. `--preferences=` sätter önskemål och `--top=` antal rader |
-| `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--platform=` väljer plattformar (`teamtailor`, `varbi`, `smartrecruiters`, `workday`), `--no-wait` avslutar direkt efter köandet. Platsbanken skrapas aldrig, den fylls av JobStream-synken |
+| `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--platform=` väljer plattformar (`teamtailor`, `varbi`, `smartrecruiters`, `workday`, `greenhouse`, `lever`, `ashby`, `platsbanken`), `--no-wait` avslutar direkt efter köandet. Platsbanken läses från JobStream i stället för att skrapas: körningen köar `SyncJobStream`, utom när den är begränsad med `--host=` eller till andra plattformar |
 
 `radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
 
@@ -67,7 +67,7 @@ Kandidater (möjliga karriärsidor) och verifierade karriärsidor ligger i separ
 | A, omdirigeringar | stark | Vid varje skrapning sparas slutvärden för `jobs.json` och värden i flödets `home_page_url` som alias. Inga extra anrop |
 | B, Platsbanken | stark | JobTech JobStream: först `/snapshot` (cirka 300 MB, läses strömmande från disk), sedan bara ändringar via `/stream?date=`. Ansökningslänkar med sökvägen `/jobs/<siffror>-` eller värd under `teamtailor.com` blir kandidater. Arbetsgivarens webbadress blir en basdomän för källa C. Annonserna sparas i `platsbanken_ads` |
 | C, prefix | svag | Varje prefix i `config/radar.php` provas mot alla kända basdomäner och mot registrerbara domäner för kända egna domäner. Prefixet sparas i `source_ref` så att träffar kan räknas per prefix |
-| D, Common Crawl | stark | Alla `*.teamtailor.com` i de senaste indexen (`RADAR_COMMONCRAWL_INDEXES`, standard tre) via CDX-API:t, sida för sida med en sekunds paus |
+| D, Common Crawl | stark | Alla `*.teamtailor.com` i de senaste indexen (`RADAR_COMMONCRAWL_INDEXES`, standard tre) via CDX-API:t, sida för sida med en sekunds paus. Samma körning hämtar konton på Greenhouse, Lever och Ashby (se Plattformar) |
 | E, TXT | stark | TXT-posterna på varje känd basdomän läses. En Teamtailor-verifieringspost (`teamtailor=<32 hextecken>`) markerar domänen som kund, och en utökad prefixlista (`txt_prefixes`) provas under den. Domäner kontrolleras om efter `RADAR_TXT_RECHECK_DAYS` dagar. Kunder där ingen sida hittas syns på statistiksidan |
 | F, HTTP Archive | svag, avstängd | BigQuery-fråga mot `httparchive.crawl.pages` i ditt eget Google Cloud-projekt (se nedan) |
 | G, sök-API | svag, avstängd | Brave Search API med nyckeln i `RADAR_SEARCH_API_KEY`. Frågorna står i `config/radar.php`, en förfrågan per sekund |
@@ -98,18 +98,21 @@ En karriärsida (`boards`) är ett konto på en plattform. Den identifieras av `
 | Plattform | Konto | Hur annonserna läses |
 | --- | --- | --- |
 | Teamtailor | Kanonisk värd | `jobs.json` och `jobs.rss` (se Skrapning) |
-| Varbi | `<konto>.varbi.com` | RSS-flödet `/what:rssfeed/` med alla öppna jobb. Flödet saknar ort, se Överlapp mot Platsbanken |
+| Varbi | `<konto>.varbi.com` | RSS-flödet `/what:rssfeed/` med alla öppna jobb. Flödet saknar ort, se Dubbletter mellan Platsbanken och andra källor |
 | SmartRecruiters | Företags-id i `jobs.smartrecruiters.com/<id>` | Det publika Posting API:t (`api.smartrecruiters.com`, ingen nyckel), filtrerat på land, och en förfrågan per annons för texten |
 | Workday | `<tenant>.wd<N>.myworkdayjobs.com/<sajt>` | Sajtens eget JSON-API (`/wday/cxs/...`, 20 annonser per sida), filtrerat med sajtens landsfacett, och en förfrågan per annons för text, orter och datum |
+| Greenhouse | Tavlans namn i `job-boards.greenhouse.io/<namn>` | Job Board API (`boards-api.greenhouse.io`, ingen nyckel): listan utan texter, sedan en förfrågan per annons i landet för text, avdelning och kontor |
+| Lever | Företagsnamnet i `jobs.lever.co/<namn>` (eller `jobs.eu.lever.co`) | Postings API (`api.lever.co` eller `api.eu.lever.co`, ingen nyckel), alla annonser med text i ett svar. Företagets namn läses en gång från jobblistans sidtitel |
+| Ashby | Tavlans namn i `jobs.ashbyhq.com/<namn>` | Job Posting API (`api.ashbyhq.com`, ingen nyckel), alla annonser med text och adress i ett svar. Företagets namn läses en gång från jobblistans sidtitel |
 | Platsbanken | Ett enda konto | Fylls av JobStream-synken (källa B), se nedan |
 
-Endpoints och fält är kontrollerade mot respektive tjänst den 3 november 2026.
+Endpoints och fält är kontrollerade mot respektive tjänst den 3 november 2026 (Greenhouse, Lever och Ashby den 5 november).
 
-**Upptäckt.** Konton på Varbi, SmartRecruiters och Workday hittas i ansökningslänkarna i Platsbankens öppna annonser. `radar:discover` kör `DiscoverPlatformBoards` direkt efter JobStream-synken och skapar en karriärsida per konto. Ingen DNS- eller fingeravtryckskontroll behövs eftersom länken pekar ut kontot. Den första skrapningen visar om sidan går att läsa, annars markeras den som död. Vilka plattformar som upptäcks styrs av `RADAR_PLATFORMS`. Teamtailor-länkar går som tidigare via kandidater och verifiering.
+**Upptäckt.** Konton på Varbi, SmartRecruiters, Workday, Greenhouse, Lever och Ashby hittas i ansökningslänkarna i Platsbankens öppna annonser. Greenhouse, Lever och Ashby används mest av företag som sällan annonserar i Platsbanken, så deras konton hämtas dessutom ur Common Crawl tillsammans med källa D: varje fångad länk under `jobs.lever.co/*`, `boards.greenhouse.io/*` och så vidare pekar ut ett konto (`CrawlPlatformBoards`, ett jobb per plattform). `radar:discover` kör `DiscoverPlatformBoards` direkt efter JobStream-synken och skapar en karriärsida per konto. Ingen DNS- eller fingeravtryckskontroll behövs eftersom länken pekar ut kontot. Den första skrapningen visar om sidan går att läsa, annars markeras den som död. Vilka plattformar som upptäcks styrs av `RADAR_PLATFORMS`. Teamtailor-länkar går som tidigare via kandidater och verifiering.
 
-**Bara Sverige.** SmartRecruiters och Workday används mest av multinationella företag. Där läses bara annonser med en ort i landet i `RADAR_COUNTRY` (standard `SE`). En Workday-annons räknas om någon av dess orter ligger i landet, eftersom många annonseras för flera länder med Sverige som extra ort. Alla orter sparas, så landsfiltret fungerar som vanligt. Teamtailor och Varbi filtreras inte.
+**Bara Sverige.** SmartRecruiters, Workday, Greenhouse, Lever och Ashby används av företag över hela världen. Där läses bara annonser med en ort i landet i `RADAR_COUNTRY` (standard `SE`). En annons räknas om någon av dess orter ligger i landet, eftersom många annonseras för flera länder med Sverige som extra ort. Alla orter sparas, så landsfiltret fungerar som vanligt. Teamtailor och Varbi filtreras inte. Greenhouse har orten bara som fritext (”Stockholm”, ”Remote - Sweden”). Landet tas då från en del som namnger ett land, och annars från listan över svenska kommuner i `resources/places/SE.txt` (`App\Scraping\Places`). Karriärsidor på dessa plattformar utan annonser i landet skrapas bara var `RADAR_EMPTY_RECHECK_DAYS` dag (standard 7), eftersom de flesta kontona i Common Crawl saknar svenska annonser. Konton på Greenhouse, Lever och Ashby delar en API-värd, så där skrapas fyra sidor åt gången per värd i stället för en.
 
-**Platsbanken som källa.** Varje öppen annons i JobStream blir en annons på karriärsidan Platsbanken, med rubrik, text, arbetsgivare, arbetsort, anställningsform, lön och publiceringsdatum. Borttagna annonser i strömmen stängs, och en ny ögonblicksbild stänger allt den inte innehåller. Platsbanken skrapas aldrig av `radar:scrape`. Migreringen som infördes samtidigt nollställer JobStream-markören, så nästa synk läser en hel ögonblicksbild.
+**Platsbanken som källa.** Varje öppen annons i JobStream blir en annons på karriärsidan Platsbanken, med rubrik, text, arbetsgivare, arbetsort, anställningsform, lön och publiceringsdatum. Borttagna annonser i strömmen stängs, och en ny ögonblicksbild stänger allt den inte innehåller. Synken körs med varje `radar:scrape`, alltså varje natt som de andra källorna, och dessutom i veckans upptäckt. Migreringen som infördes samtidigt nollställer JobStream-markören, så nästa synk läser en hel ögonblicksbild.
 
 ## Skrapning
 
@@ -165,16 +168,14 @@ Listan visar annonser med minst `RADAR_MATCH_MIN_SCORE` poäng (standard 50), oc
 
 Modellen är `claude-haiku-5-5` med `effort` `medium` (`RADAR_MATCH_MODEL`, `RADAR_MATCH_EFFORT`). En full matchning av 300 annonser är omkring 420 000 tokens in och 50 000 ut, med Haiku runt sju cent. `claude-sonnet-5-5` eller `claude-opus-5-5` bedömer noggrannare men kostar ungefär 20 respektive 40 gånger så mycket. Med dem är server-side fallback påslaget: avböjer modellen ett anrop av policyskäl provar API:t sin standardreserv. Haiku har ingen sådan. Varje anrop loggas med antal tokens.
 
-## Överlapp mot Platsbanken
+## Dubbletter mellan Platsbanken och andra källor
 
-Premissen var att annonserna på karriärsidorna inte syns någon annanstans. `radar:match-platsbanken` testar det mot annonserna från JobStream, för annonser från alla plattformar utom Platsbanken själv:
+Många arbetsgivare lägger samma annons både i sitt eget rekryteringssystem och i Platsbanken. `radar:match-platsbanken` hittar dem efter nattens skrapning, för annonser från alla plattformar utom Platsbanken själv:
 
 1. **Ansökningslänk.** Platsbanken-annonsen länkar till samma jobb. Varje adapter ger en jobbnyckel ur länken: för Teamtailor jobb-id i sökvägen (`/jobs/<id>-...`) oavsett värd, för Varbi `jobID`, för SmartRecruiters annons-id och för Workday sista delen av sökvägen. Annars krävs samma värd och sökväg.
 2. **Organisationsnummer och titel.** Karriärsidans organisationsnummer tas från annonser som matchade i steg 1, eller från `domains` via registrerbar domän. Därefter krävs samma normaliserade titel.
 
-Matchade annonser får märket "Finns även i Platsbanken", gränssnittet har filtret "Bara annonser som saknas i Platsbanken", och andelen syns på statistiksidan.
-
-Eftersom Platsbanken också är en källa skulle en matchad annons annars visas två gånger. Platsbankens annons får därför `duplicate_of_id` satt till arbetsgivarens egen annons och visas inte i listan, i räkningen av osedda eller i statistiken. Arbetsgivarens version visas, eftersom den oftast har mer data. En matchad annons utan ort (alla Varbi-annonser) får orterna från Platsbanken. Varbi-annonser saknar därför ort mellan nattens skrapning och matchningen, och de som inte finns i Platsbanken saknar ort helt.
+Platsbankens annons får `duplicate_of_id` satt till arbetsgivarens egen annons och visas inte i listan, i räkningen av osedda eller i statistiken. Arbetsgivarens version visas, eftersom den oftast har mer data. En matchad annons utan ort (alla Varbi-annonser) får orterna från Platsbanken. Varbi-annonser saknar därför ort mellan nattens skrapning och matchningen, och de som inte finns i Platsbanken saknar ort helt.
 
 ## Köer och första körningen
 
@@ -189,7 +190,7 @@ Första gången: kör `php artisan radar:discover --verify`. Det köar JobStream
 
 ## Konfiguration
 
-Alla inställningar finns i `config/radar.php` och läses från `.env` (se `.env.example`). `RADAR_PLATFORMS` väljer plattformarna som upptäcks (standard `varbi,smartrecruiters,workday`) och `RADAR_COUNTRY` landet som annonser från SmartRecruiters och Workday filtreras på (standard `SE`). DNS går som standard via DNS over HTTPS (`RADAR_DNS_DRIVER=doh`). Med `RADAR_DNS_DRIVER=system` används operativsystemets resolver i stället, vilket fungerar där DoH är blockerat men saknar tidsgräns.
+Alla inställningar finns i `config/radar.php` och läses från `.env` (se `.env.example`). `RADAR_PLATFORMS` väljer plattformarna som upptäcks (standard `varbi,smartrecruiters,workday,greenhouse,lever,ashby`) och `RADAR_COUNTRY` landet som annonser från SmartRecruiters, Workday, Greenhouse, Lever och Ashby filtreras på (standard `SE`). DNS går som standard via DNS over HTTPS (`RADAR_DNS_DRIVER=doh`). Med `RADAR_DNS_DRIVER=system` används operativsystemets resolver i stället, vilket fungerar där DoH är blockerat men saknar tidsgräns.
 
 ## Kalibrering
 

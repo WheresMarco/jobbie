@@ -23,7 +23,6 @@ final class StatsPage extends Component
             'platforms' => $stats->platforms(),
             'byStatus' => $stats->boardsByStatus(),
             'activePostings' => $stats->activePostings(),
-            'platsbanken' => $stats->platsbankenOverlap(),
             'prefixHits' => $stats->prefixHits(),
             'txtWithoutBoard' => $stats->txtMatchesWithoutBoard(),
         ]);

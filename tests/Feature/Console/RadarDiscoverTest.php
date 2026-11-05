@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use App\Discovery\JobStream\JobStreamSync;
 use App\Enums\CandidateSourceType;
+use App\Enums\Platform;
 use App\Enums\Strength;
 use App\Jobs\CollectCandidates;
+use App\Jobs\CrawlPlatformBoards;
 use App\Jobs\DiscoverPlatformBoards;
 use App\Jobs\QueueVerification;
 use App\Jobs\SyncJobStream;
@@ -162,6 +164,9 @@ it('queues the sources as one chain, JobStream sync first', function (): void {
         fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::JobStream,
         fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::Prefix,
         fn (CollectCandidates $job): bool => $job->source === CandidateSourceType::CommonCrawl,
+        fn (CrawlPlatformBoards $job): bool => $job->platform === Platform::Greenhouse,
+        fn (CrawlPlatformBoards $job): bool => $job->platform === Platform::Lever,
+        fn (CrawlPlatformBoards $job): bool => $job->platform === Platform::Ashby,
     ]);
 });
 

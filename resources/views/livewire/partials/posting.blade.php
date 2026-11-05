@@ -56,9 +56,6 @@
         @if ($posting->department)
             <span class="text-stone-500">{{ $posting->department }}</span>
         @endif
-        @if ($posting->in_platsbanken && $posting->board?->platform !== \App\Enums\Platform::Platsbanken)
-            <span class="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">{{ __('ui.jobs.in_platsbanken') }}</span>
-        @endif
         @if ($posting->board)
             <span class="text-xs text-stone-500" data-platform="{{ $posting->board->platform->value }}">{{ __("radar.platforms.{$posting->board->platform->value}") }}</span>
         @endif

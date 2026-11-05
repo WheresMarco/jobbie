@@ -6,8 +6,8 @@ namespace App\Providers;
 
 use Anthropic\Client as AnthropicClient;
 use App\Discovery\Calibration\Calibrator;
+use App\Discovery\CommonCrawlIndex;
 use App\Discovery\JobStream\JobStreamSync;
-use App\Discovery\Sources\CommonCrawlSource;
 use App\Discovery\Sources\HttpArchiveSource;
 use App\Discovery\Sources\PrefixSource;
 use App\Discovery\Sources\SearchApiSource;
@@ -28,6 +28,9 @@ use App\Net\DomainName;
 use App\Net\PublicSuffixList;
 use App\Net\StreamCertificateFetcher;
 use App\Net\SystemDnsResolver;
+use App\Platforms\Adapters\AshbyAdapter;
+use App\Platforms\Adapters\GreenhouseAdapter;
+use App\Platforms\Adapters\LeverAdapter;
 use App\Platforms\Adapters\SmartRecruitersAdapter;
 use App\Platforms\Adapters\VarbiAdapter;
 use App\Platforms\Adapters\WorkdayAdapter;
@@ -96,6 +99,15 @@ class AppServiceProvider extends ServiceProvider
             country: config()->string('radar.platforms.country'),
         ));
 
+        foreach ([GreenhouseAdapter::class, LeverAdapter::class, AshbyAdapter::class] as $adapter) {
+            $this->app->bind($adapter, static fn (): object => new $adapter(
+                userAgent: config()->string('radar.user_agent'),
+                timeout: config()->integer('radar.http_timeout'),
+                poolSize: config()->integer('radar.http_pool_size'),
+                country: config()->string('radar.platforms.country'),
+            ));
+        }
+
         $this->app->bind(Verifier::class, static fn (Application $app): Verifier => new Verifier(
             dns: $app->make(DnsResolver::class),
             userAgent: config()->string('radar.user_agent'),
@@ -134,7 +146,7 @@ class AppServiceProvider extends ServiceProvider
             maxBytesBilled: config()->integer('radar.http_archive.max_bytes_billed'),
         ));
 
-        $this->app->bind(CommonCrawlSource::class, static fn (): CommonCrawlSource => new CommonCrawlSource(
+        $this->app->bind(CommonCrawlIndex::class, static fn (): CommonCrawlIndex => new CommonCrawlIndex(
             indexCount: config()->integer('radar.commoncrawl.index_count'),
             userAgent: config()->string('radar.user_agent'),
             timeout: config()->integer('radar.http_timeout'),

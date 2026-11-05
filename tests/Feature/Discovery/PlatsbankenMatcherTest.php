@@ -9,7 +9,6 @@ use App\Models\BoardAlias;
 use App\Models\Domain;
 use App\Models\JobPosting;
 use App\Models\PlatsbankenAd;
-use App\Stats\RadarStats;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -70,16 +69,12 @@ it('clears matches that no longer hold', function (): void {
     expect(JobPosting::query()->where('in_platsbanken', true)->count())->toBe(0);
 });
 
-it('marks and filters postings in the job browser and shows the share', function (): void {
+it('shows Platsbanken like any other source: no mark on postings and no share on the statistics page', function (): void {
     $this->artisan('radar:match-platsbanken')->assertSuccessful();
 
     Livewire::test(JobBrowser::class)
         ->set('view', 'flat')
-        ->assertSee('Finns även i Platsbanken')
-        ->assertViewHas('facets', fn ($f): bool => $f->notInPlatsbanken === 1)
-        ->set('missing', true)
-        ->assertViewHas('postings', fn (array $p): bool => array_map(fn ($x) => $x->feed_id, $p) === ['3']);
-
-    expect(app(RadarStats::class)->platsbankenOverlap())->toBe(['active' => 5, 'matched' => 4, 'apply_url' => 2, 'org_title' => 2]);
-    Livewire::test(StatsPage::class)->assertSeeHtml('80,0 %');
+        ->assertViewHas('total', 5)
+        ->assertDontSee('Finns även i Platsbanken');
+    Livewire::test(StatsPage::class)->assertDontSee('Finns även i Platsbanken')->assertDontSeeHtml('80,0 %');
 });

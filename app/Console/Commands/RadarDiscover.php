@@ -11,6 +11,7 @@ use App\Discovery\PlatformBoardDiscovery;
 use App\Discovery\SourceRegistry;
 use App\Enums\CandidateSourceType;
 use App\Jobs\CollectCandidates;
+use App\Jobs\CrawlPlatformBoards;
 use App\Jobs\DiscoverPlatformBoards;
 use App\Jobs\QueueVerification;
 use App\Jobs\SyncJobStream;
@@ -77,6 +78,14 @@ final class RadarDiscover extends Command
                 $counts = $collector->collect($sources->source($type));
                 $this->components->info($this->t('radar.discover.collected', ['source' => $type->value, ...$counts]));
 
+                if ($type === CandidateSourceType::CommonCrawl) {
+                    foreach ($platforms->crawlable() as $platform) {
+                        foreach ($platforms->crawl($platform) as $name => $found) {
+                            $this->components->info($this->t('radar.discover.crawled_boards', ['platform' => $name, ...$found]));
+                        }
+                    }
+                }
+
                 continue;
             }
 
@@ -86,6 +95,11 @@ final class RadarDiscover extends Command
                 $chain[] = new DiscoverPlatformBoards();
             }
             $chain[] = new CollectCandidates($type);
+            if ($type === CandidateSourceType::CommonCrawl) {
+                foreach ($platforms->crawlable() as $platform) {
+                    $chain[] = new CrawlPlatformBoards($platform);
+                }
+            }
 
             $this->components->info($this->t('radar.discover.queued', ['source' => $type->value]));
         }

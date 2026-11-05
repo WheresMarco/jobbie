@@ -147,6 +147,29 @@ trait RequestsFeeds
         return str_contains($url, '://') ? $url : "https://{$url}";
     }
 
+    /**
+     * Non-empty path segments of a link, URL-decoded.
+     *
+     * @return list<string>
+     */
+    protected static function pathSegments(string $url): array
+    {
+        $path = (string) parse_url(self::withScheme($url), PHP_URL_PATH);
+
+        return array_values(array_map(rawurldecode(...), array_filter(explode('/', $path), static fn (string $s): bool => $s !== '')));
+    }
+
+    /**
+     * One query parameter of a link, or null.
+     */
+    protected static function query(string $url, string $name): ?string
+    {
+        parse_str((string) parse_url(self::withScheme($url), PHP_URL_QUERY), $query);
+        $value = $query[$name] ?? null;
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
     protected static function date(mixed $value): ?CarbonImmutable
     {
         try {

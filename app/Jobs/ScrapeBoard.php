@@ -34,14 +34,18 @@ final class ScrapeBoard implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * At most one request at a time per host.
+     * At most one request at a time per host, or a few on platforms whose
+     * boards share an API host.
      *
      * @return list<object>
      */
     public function middleware(): array
     {
+        $slots = $this->board->platform->parallelScrapes();
+        $key = 'host:'.$this->board->canonical_host.($slots > 1 ? ':'.($this->board->id % $slots) : '');
+
         return [
-            (new WithoutOverlapping('host:'.$this->board->canonical_host))
+            (new WithoutOverlapping($key))
                 ->releaseAfter(30)
                 ->expireAfter(900),
         ];

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Enums\BoardStatus;
 use App\Enums\Platform;
 use App\Jobs\ScrapeBoard;
+use App\Jobs\SyncJobStream;
 use App\Livewire\JobBrowser;
 use App\Models\Board;
 use App\Models\JobPosting;
@@ -160,7 +161,7 @@ it('shows an ad read from both Varbi and Platsbanken once, with places from Plat
         [[
             jobStreamAd('100', 'https://gotene.varbi.com/se/what:job/jobID:500/type:job/apply:1'),
             jobStreamAd('101', 'https://example.se/jobb'),
-        ]],
+        ], []],  // The second sync, from radar:scrape, has no changes.
         fn (Request $r) => parse_url($r->url(), PHP_URL_HOST) === 'gotene.varbi.com'
             ? Http::response(PlatformFeeds::varbiRss('gotene', 'Götene kommun', [500 => 'Undersköterska', 501 => 'Bara på Varbi']))
             : null,
@@ -189,14 +190,11 @@ it('shows an ad read from both Varbi and Platsbanken once, with places from Plat
         ->assertViewHas('facets', fn ($f): bool => $f->cities === ['Götene' => 2])
         ->set('platform', 'platsbanken')
         ->assertViewHas('postings', fn (array $p): bool => array_map(fn ($x) => $x->feed_id, $p) === ['101'])
-        ->assertSee('Platsbanken')
-        ->assertDontSee('Finns även i Platsbanken');
+        ->assertSee('Platsbanken');
 
     expect(app(RadarStats::class)->platforms()['varbi'])->toBe(['boards' => 1, 'active' => 1, 'postings' => 2])
         ->and(app(RadarStats::class)->platforms()['platsbanken']['postings'])->toBe(1)
-        ->and(app(RadarStats::class)->activePostings())->toBe(3)
-        // The share in Platsbanken counts postings from employers' own systems.
-        ->and(app(RadarStats::class)->platsbankenOverlap())->toBe(['active' => 2, 'matched' => 1, 'apply_url' => 1, 'org_title' => 0]);
+        ->and(app(RadarStats::class)->activePostings())->toBe(3);
 });
 
 it('stops hiding the Platsbanken posting when the match no longer holds', function (): void {
@@ -217,19 +215,44 @@ it('stops hiding the Platsbanken posting when the match no longer holds', functi
         ->and($twin->in_platsbanken)->toBeTrue();
 });
 
-it('never queues the Platsbanken board for scraping and can scrape one platform', function (): void {
+it('syncs the Platsbanken board with every scrape instead of scraping it, and can scrape one platform', function (): void {
     Bus::fake();
     Board::factory()->on(Platform::Platsbanken, Platsbanken::KEY)->create();
     $varbi = Board::factory()->on(Platform::Varbi, 'gotene')->create();
     Board::factory()->custom('career.kry.se')->create();
 
-    $this->artisan('radar:scrape', ['--no-wait' => true])->assertSuccessful();
+    $this->artisan('radar:scrape', ['--no-wait' => true])
+        ->expectsOutputToContain('Platsbanken: synk från JobStream köad.')
+        ->assertSuccessful();
     Bus::assertBatched(fn ($batch): bool => $batch->jobs->count() === 2);
+    Bus::assertDispatchedTimes(SyncJobStream::class, 1);
 
     $this->artisan('radar:scrape', ['--no-wait' => true, '--platform' => ['varbi']])->assertSuccessful();
     Bus::assertBatched(fn ($batch): bool => $batch->jobs->count() === 1
         && $batch->jobs->first() instanceof ScrapeBoard
         && $batch->jobs->first()->board->is($varbi));
+    Bus::assertDispatchedTimes(SyncJobStream::class, 1);
+
+    // The job is unique, so the one already queued stands.
+    $this->artisan('radar:scrape', ['--no-wait' => true, '--platform' => ['platsbanken']])
+        ->expectsOutputToContain('Platsbanken: synk från JobStream köad.')
+        ->doesntExpectOutputToContain('Inga karriärsidor att skrapa')
+        ->assertSuccessful();
+    Bus::assertBatchCount(2);
+
+    // Not when only some hosts are scraped.
+    $this->artisan('radar:scrape', ['--no-wait' => true, '--host' => ['career.kry.se']])
+        ->doesntExpectOutputToContain('Platsbanken')
+        ->assertSuccessful();
+});
+
+it('does not sync Platsbanken before it is in use', function (): void {
+    Bus::fake();
+    Board::factory()->custom('career.kry.se')->create();
+
+    $this->artisan('radar:scrape', ['--no-wait' => true])->assertSuccessful();
+
+    Bus::assertNotDispatched(SyncJobStream::class);
 });
 
 it('keeps the external key of Teamtailor boards in step with the host', function (): void {

@@ -59,6 +59,9 @@ class BoardFactory extends Factory
                 Platform::Varbi => ["{$key}.varbi.com", "https://{$key}.varbi.com/se/"],
                 Platform::SmartRecruiters => ['jobs.smartrecruiters.com', "https://jobs.smartrecruiters.com/{$key}"],
                 Platform::Workday => [explode('/', $key)[0], "https://{$key}"],
+                Platform::Greenhouse => ['job-boards.greenhouse.io', "https://job-boards.greenhouse.io/{$key}"],
+                Platform::Lever => ['jobs.lever.co', "https://jobs.lever.co/{$key}"],
+                Platform::Ashby => ['jobs.ashbyhq.com', "https://jobs.ashbyhq.com/{$key}"],
                 Platform::Platsbanken => ['arbetsformedlingen.se', 'https://arbetsformedlingen.se/platsbanken/'],
                 Platform::Teamtailor => ["{$key}.teamtailor.com", "https://{$key}.teamtailor.com/"],
             };

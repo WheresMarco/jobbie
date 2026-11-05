@@ -9,6 +9,7 @@ use App\Console\Concerns\Translates;
 use App\Enums\BoardStatus;
 use App\Enums\Platform;
 use App\Jobs\ScrapeBoard;
+use App\Jobs\SyncJobStream;
 use App\Models\Board;
 use App\Models\BoardAlias;
 use App\Net\DomainName;
@@ -24,17 +25,27 @@ final class RadarScrape extends Command
     protected $signature = 'radar:scrape
         {--only-active : Only boards that had postings last time}
         {--host=* : Only these hosts (canonical or alias)}
-        {--platform=* : Only boards on these platforms (teamtailor, varbi, smartrecruiters, workday)}
+        {--platform=* : Only boards on these platforms (teamtailor, varbi, smartrecruiters, workday, greenhouse, lever, ashby, platsbanken)}
         {--no-wait : Dispatch the batch and exit without showing progress}';
 
-    protected $description = 'Queue a scrape of every known career site';
+    protected $description = 'Queue a scrape of every known career site, and a sync of Platsbanken';
 
     public function handle(DomainName $domains): int
     {
+        // Platsbanken is read from JobStream rather than scraped: one long
+        // job for the whole board, on the queue for long jobs.
+        $platsbanken = $this->includesPlatsbanken();
+        if ($platsbanken) {
+            SyncJobStream::dispatch();
+            $this->components->info($this->t('radar.scrape.platsbanken'));
+        }
+
         $boards = $this->boards($domains)->get();
 
         if ($boards->isEmpty()) {
-            $this->components->warn($this->t('radar.scrape.nothing'));
+            if (! $platsbanken) {
+                $this->components->warn($this->t('radar.scrape.nothing'));
+            }
 
             return self::SUCCESS;
         }
@@ -60,16 +71,11 @@ final class RadarScrape extends Command
      */
     private function boards(DomainName $domains): Builder
     {
-        // The Platsbanken board is filled by the JobStream sync.
         $query = Board::query()->whereIn('platform', Platform::scraped())->orderBy('id');
 
-        /** @var list<string> $platformOption */
-        $platformOption = (array) $this->option('platform');
-        if ($platformOption !== []) {
-            $query->whereIn('platform', array_map(
-                static fn (string $name): string => strtolower(trim($name)),
-                array_merge(...array_map(static fn (string $o): array => explode(',', $o), $platformOption)),
-            ));
+        $platforms = $this->platforms();
+        if ($platforms !== []) {
+            $query->whereIn('platform', $platforms);
         }
 
         /** @var list<string> $hostOption */
@@ -86,13 +92,50 @@ final class RadarScrape extends Command
             return $query->where('status', BoardStatus::Active);
         }
 
-        // Dead boards are only rechecked now and then.
+        // Dead boards are only rechecked now and then, and so are empty ones
+        // on platforms used across the world: most have nothing here.
         $recheckBefore = now()->subDays(config()->integer('radar.dead_recheck_days'));
+        $emptyBefore = now()->subDays(config()->integer('radar.platforms.empty_recheck_days'));
 
-        return $query->where(fn ($q) => $q
-            ->where('status', '!=', BoardStatus::Dead)
-            ->orWhereNull('checked_at')
-            ->orWhere('checked_at', '<', $recheckBefore));
+        return $query
+            ->where(fn ($q) => $q
+                ->where('status', '!=', BoardStatus::Dead)
+                ->orWhereNull('checked_at')
+                ->orWhere('checked_at', '<', $recheckBefore))
+            ->where(fn ($q) => $q
+                ->where('status', '!=', BoardStatus::Empty)
+                ->orWhereNotIn('platform', Platform::countryFiltered())
+                ->orWhereNull('checked_at')
+                ->orWhere('checked_at', '<', $emptyBefore));
+    }
+
+    /**
+     * Platform names from --platform, or none for all.
+     *
+     * @return list<string>
+     */
+    private function platforms(): array
+    {
+        /** @var list<string> $option */
+        $option = (array) $this->option('platform');
+
+        return array_map(
+            static fn (string $name): string => strtolower(trim($name)),
+            array_merge([], ...array_map(static fn (string $o): array => explode(',', $o), $option)),
+        );
+    }
+
+    /**
+     * Whether this run covers the Platsbanken board: once it exists, it is
+     * synced along with every scrape that is not limited to other boards.
+     */
+    private function includesPlatsbanken(): bool
+    {
+        $platforms = $this->platforms();
+
+        return (array) $this->option('host') === []
+            && ($platforms === [] || in_array(Platform::Platsbanken->value, $platforms, true))
+            && Board::query()->where('platform', Platform::Platsbanken)->exists();
     }
 
     /**

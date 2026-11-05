@@ -37,6 +37,7 @@ return [
     'scrape' => [
         'nothing' => 'Inga karriärsidor att skrapa.',
         'dispatched' => ':count karriärsidor köade (batch :batch).',
+        'platsbanken' => 'Platsbanken: synk från JobStream köad.',
         'columns' => [
             'status' => 'Status',
             'boards' => 'Karriärsidor',
@@ -59,13 +60,13 @@ return [
         'jobstream_synced' => 'JobStream: :ads annonser, :removed borttagna, :domains nya domäner.',
         'domains_imported' => ':count nya domäner importerades.',
         'platform_boards' => ':platform: :accounts konton i Platsbankens ansökningslänkar, :created nya karriärsidor.',
+        'crawled_boards' => ':platform: :accounts konton i Common Crawl, :created nya karriärsidor.',
     ],
     'stats' => [
         'sources' => 'Upptäcktskällor',
         'boards' => 'Karriärsidor',
         'platforms' => 'Källor',
         'platform_detail' => ':boards sidor, :active aktiva, :postings annonser',
-        'in_platsbanken' => 'Finns även i Platsbanken',
         'active_postings' => 'Aktiva annonser',
         'prefix_hits' => 'Verifierade per prefix',
         'txt_without_board' => 'Kunder enligt TXT utan hittad sida',
@@ -100,6 +101,9 @@ return [
         'varbi' => 'Varbi',
         'smartrecruiters' => 'SmartRecruiters',
         'workday' => 'Workday',
+        'greenhouse' => 'Greenhouse',
+        'lever' => 'Lever',
+        'ashby' => 'Ashby',
     ],
     'kinds' => [
         'tt_subdomain' => 'Teamtailor-adress',

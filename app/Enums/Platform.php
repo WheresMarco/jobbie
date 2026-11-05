@@ -21,6 +21,12 @@ enum Platform: string
 
     case Workday = 'workday';
 
+    case Greenhouse = 'greenhouse';
+
+    case Lever = 'lever';
+
+    case Ashby = 'ashby';
+
     /**
      * Platforms whose boards are read by ScrapeBoard.
      *
@@ -29,5 +35,29 @@ enum Platform: string
     public static function scraped(): array
     {
         return array_values(array_filter(self::cases(), static fn (self $p): bool => $p !== self::Platsbanken));
+    }
+
+    /**
+     * Platforms used by companies across the world, where only postings in
+     * the configured country are read. A board there with none is empty
+     * most of the time, so empty boards are only checked now and then.
+     *
+     * @return list<self>
+     */
+    public static function countryFiltered(): array
+    {
+        return [self::SmartRecruiters, self::Workday, self::Greenhouse, self::Lever, self::Ashby];
+    }
+
+    /**
+     * How many boards on the platform may be scraped at once. Boards share
+     * one API host here, which takes more than one request at a time.
+     */
+    public function parallelScrapes(): int
+    {
+        return match ($this) {
+            self::Greenhouse, self::Lever, self::Ashby => 4,
+            default => 1,
+        };
     }
 }

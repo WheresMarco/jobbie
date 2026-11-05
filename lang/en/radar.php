@@ -37,6 +37,7 @@ return [
     'scrape' => [
         'nothing' => 'No career sites to scrape.',
         'dispatched' => ':count career sites queued (batch :batch).',
+        'platsbanken' => 'Platsbanken: JobStream sync queued.',
         'columns' => [
             'status' => 'Status',
             'boards' => 'Career sites',
@@ -59,13 +60,13 @@ return [
         'jobstream_synced' => 'JobStream: :ads ads, :removed removed, :domains new domains.',
         'domains_imported' => ':count new domains imported.',
         'platform_boards' => ':platform: :accounts accounts in Platsbanken apply links, :created new career sites.',
+        'crawled_boards' => ':platform: :accounts accounts in Common Crawl, :created new career sites.',
     ],
     'stats' => [
         'sources' => 'Discovery sources',
         'boards' => 'Career sites',
         'platforms' => 'Sources',
         'platform_detail' => ':boards sites, :active active, :postings postings',
-        'in_platsbanken' => 'Also in Platsbanken',
         'active_postings' => 'Active postings',
         'prefix_hits' => 'Verified per prefix',
         'txt_without_board' => 'Customers by TXT without a found site',
@@ -100,6 +101,9 @@ return [
         'varbi' => 'Varbi',
         'smartrecruiters' => 'SmartRecruiters',
         'workday' => 'Workday',
+        'greenhouse' => 'Greenhouse',
+        'lever' => 'Lever',
+        'ashby' => 'Ashby',
     ],
     'kinds' => [
         'tt_subdomain' => 'Teamtailor address',

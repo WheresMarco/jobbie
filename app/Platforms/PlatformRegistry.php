@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Platforms;
 
 use App\Enums\Platform;
+use App\Platforms\Adapters\AshbyAdapter;
+use App\Platforms\Adapters\GreenhouseAdapter;
+use App\Platforms\Adapters\LeverAdapter;
 use App\Platforms\Adapters\SmartRecruitersAdapter;
 use App\Platforms\Adapters\TeamtailorAdapter;
 use App\Platforms\Adapters\VarbiAdapter;
@@ -26,6 +29,9 @@ final class PlatformRegistry
         Platform::Varbi->value => VarbiAdapter::class,
         Platform::SmartRecruiters->value => SmartRecruitersAdapter::class,
         Platform::Workday->value => WorkdayAdapter::class,
+        Platform::Greenhouse->value => GreenhouseAdapter::class,
+        Platform::Lever->value => LeverAdapter::class,
+        Platform::Ashby->value => AshbyAdapter::class,
     ];
 
     /** @var array<string, PlatformAdapter> */
@@ -70,11 +76,16 @@ final class PlatformRegistry
     }
 
     /**
-     * The job a link points at, on any scraped platform.
+     * The job a link points at, on any scraped platform. Teamtailor goes
+     * last: its job links (/jobs/<id>-...) are on any host, so they also
+     * fit other platforms' links.
      */
     public function jobKey(string $url): ?string
     {
-        foreach (array_keys(self::ADAPTERS) as $platform) {
+        $platforms = array_keys(self::ADAPTERS);
+        usort($platforms, static fn (string $a, string $b): int => ($a === Platform::Teamtailor->value) <=> ($b === Platform::Teamtailor->value));
+
+        foreach ($platforms as $platform) {
             if (($key = $this->adapter(Platform::from($platform))->jobKey($url)) !== null) {
                 return $key;
             }
