@@ -46,7 +46,7 @@ Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS sam
 | `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
 | `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
 | `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
-| `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
+| `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`, `wayback`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
 | `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
 | `radar:smoke {värdar?*}` | Manuellt röktest mot riktiga karriärsidor (standard tre kända). Verifierar och läser flöde och RSS utan att skriva till databasen. Ingår inte i CI |
 | `radar:match-platsbanken` | Döljer Platsbankens kopior av annonser som även läses från arbetsgivarens eget system (körs varje natt) |
@@ -71,6 +71,7 @@ Kandidater (möjliga karriärsidor) och verifierade karriärsidor ligger i separ
 | E, TXT | stark | TXT-posterna på varje känd basdomän läses. En Teamtailor-verifieringspost (`teamtailor=<32 hextecken>`) markerar domänen som kund, och en utökad prefixlista (`txt_prefixes`) provas under den. Domäner kontrolleras om efter `RADAR_TXT_RECHECK_DAYS` dagar. Kunder där ingen sida hittas syns på statistiksidan |
 | F, HTTP Archive | svag, avstängd | BigQuery-fråga mot `httparchive.crawl.pages` i ditt eget Google Cloud-projekt (se nedan) |
 | G, sök-API | svag, avstängd | Brave Search API med nyckeln i `RADAR_SEARCH_API_KEY`. Frågorna står i `config/radar.php`, en förfrågan per sekund |
+| H, Internet Archive | stark | Alla `*.teamtailor.com` som Wayback Machine har sparat sedan 2012, via dess CDX-API. Hittar många fler konton än Common Crawl, även sådana som har lagt ned (verifieringen sorterar bort dem). Indexet läses 5 000 nycklar åt gången och hoppar förbi varje värd det redan sett, så en stor värd kostar en fråga. Varje köat jobb går i högst 40 minuter och köar nästa från samma nyckel; svarar arkivet inte väntar nästa jobb en halvtimme |
 
 Källorna E, F och G körs med `radar:discover --source=txt`, `--source=httparchive` och `--source=search`, eller läggs till i `RADAR_SOURCES`.
 
@@ -84,7 +85,7 @@ Verifieringen går från billigt till dyrt:
 
 1. **DNS.** A-post via DNS over HTTPS, med hela CNAME-kedjan. Saknas namnet blir steget `no_dns`. DNS-fel lämnar kandidaten som `new` till nästa körning. Slug-adresser under `teamtailor.com` hoppar över DNS eftersom de ligger bakom ett jokertecken.
 2. **Fingeravtryck.** CNAME-kedjan eller adresserna jämförs med `Fingerprint`. Svaga kandidater utan träff avvisas här, starka går vidare.
-3. **HTTP.** `jobs.json` hämtas med omdirigeringar. Bara ett läsbart jobbflöde ger `verified`.
+3. **HTTP.** `jobs.json` hämtas med omdirigeringar. Bara ett läsbart jobbflöde ger `verified`. Teamtailor stryper efter ett par tusen snabba frågor: svarar en slug-adress 403 eller 429 lämnas den som `new` och provas igen i samma batch efter tio minuter, utspritt, högst fem gånger.
 4. **Reserv.** Svarar en stark kandidat 404 letas HTML-markörer på startsidan. En träff loggas som `fingerprint_match`, men ingen karriärsida skapas utan flöde.
 
 ## Deduplicering

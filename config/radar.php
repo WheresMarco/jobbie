@@ -61,7 +61,7 @@ return [
     'sources' => [
         'enabled' => array_values(array_filter(explode(',', (string) env(
             'RADAR_SOURCES',
-            'redirects,jobstream,prefixes,commoncrawl',
+            'redirects,jobstream,prefixes,commoncrawl,wayback',
         )))),
     ],
 

@@ -10,7 +10,7 @@ it('exposes the radar settings with sensible defaults', function (): void {
         ->and(config('radar.dead_recheck_days'))->toBe(30)
         ->and(config('radar.rejected_recheck_days'))->toBe(60)
         ->and(config('radar.new_job_days'))->toBe(7)
-        ->and(config('radar.sources.enabled'))->toBe(['redirects', 'jobstream', 'prefixes', 'commoncrawl']);
+        ->and(config('radar.sources.enabled'))->toBe(['redirects', 'jobstream', 'prefixes', 'commoncrawl', 'wayback']);
 });
 
 it('keeps the Punycode prefix in sync with its Unicode form', function (): void {

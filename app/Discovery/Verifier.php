@@ -26,6 +26,9 @@ use Throwable;
  */
 final readonly class Verifier
 {
+    /** Statuses Teamtailor answers with while it throttles us. */
+    public const array THROTTLED = [403, 429];
+
     public function __construct(
         private DnsResolver $dns,
         private string $userAgent,
@@ -154,6 +157,14 @@ final readonly class Verifier
 
             if ($response->status() === 404 && $candidates[$host] === Strength::Strong) {
                 $fallback[$host] = $verdict;
+
+                continue;
+            }
+
+            // Teamtailor answers bursts of requests with 403 or 429 for
+            // a while. Unknown, not negative: leave the candidate for later.
+            if (in_array($response->status(), self::THROTTLED, true) && Fingerprint::isSlugHost($host)) {
+                $verdicts[$host] = $verdict->with(['stage' => CandidateStage::New, 'reason' => 'http_'.$response->status()]);
 
                 continue;
             }

@@ -11,6 +11,7 @@ use App\Discovery\Sources\JobStreamSource;
 use App\Discovery\Sources\PrefixSource;
 use App\Discovery\Sources\SearchApiSource;
 use App\Discovery\Sources\TxtRecordSource;
+use App\Discovery\Sources\WaybackSource;
 use App\Enums\CandidateSourceType;
 use Illuminate\Contracts\Container\Container;
 use InvalidArgumentException;
@@ -34,6 +35,8 @@ final readonly class SourceRegistry
         'http_archive' => CandidateSourceType::HttpArchive,
         'search' => CandidateSourceType::SearchApi,
         'search_api' => CandidateSourceType::SearchApi,
+        'wayback' => CandidateSourceType::Wayback,
+        'archive' => CandidateSourceType::Wayback,
     ];
 
     /**
@@ -48,6 +51,7 @@ final readonly class SourceRegistry
         CandidateSourceType::Txt->value => TxtRecordSource::class,
         CandidateSourceType::HttpArchive->value => HttpArchiveSource::class,
         CandidateSourceType::SearchApi->value => SearchApiSource::class,
+        CandidateSourceType::Wayback->value => WaybackSource::class,
     ];
 
     public function __construct(private Container $container)

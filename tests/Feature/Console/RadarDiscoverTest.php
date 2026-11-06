@@ -3,10 +3,14 @@
 declare(strict_types=1);
 
 use App\Discovery\JobStream\JobStreamSync;
+use App\Discovery\Sources\WaybackSource;
+use App\Discovery\WaybackIndex;
+use App\Discovery\WaybackUnavailable;
 use App\Enums\CandidateSourceType;
 use App\Enums\Platform;
 use App\Enums\Strength;
 use App\Jobs\CollectCandidates;
+use App\Jobs\CollectWaybackCandidates;
 use App\Jobs\CrawlPlatformBoards;
 use App\Jobs\DiscoverPlatformBoards;
 use App\Jobs\QueueVerification;
@@ -22,6 +26,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Sleep;
 
 uses(RefreshDatabase::class);
 
@@ -113,6 +118,130 @@ it('collects slug hosts from the latest Common Crawl indexes', function (): void
     Http::assertNotSent(fn (Request $r): bool => str_contains($r->url(), '2026-25'));
 });
 
+/**
+ * The Wayback CDX API over a sorted list of URL keys, read from the resume
+ * key onwards like the real one. $before runs ahead of each answer and may
+ * replace it.
+ *
+ * @param  list<string>  $keys
+ */
+function fakeWayback(array $keys, ?Closure $before = null): void
+{
+    sort($keys);
+    app()->bind(WaybackSource::class, fn (): WaybackSource => new WaybackSource(app(WaybackIndex::class), slice: 3));
+
+    Http::fake(function (Request $request) use ($keys, $before) {
+        if (! str_starts_with($request->url(), WaybackIndex::CDX_URL)) {
+            return Http::response('unexpected', 500);
+        }
+        if ($before !== null && ($response = $before()) !== null) {
+            return $response;
+        }
+
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+        $from = isset($query['resumeKey']) ? strstr((string) gzuncompress((string) base64_decode(strtr($query['resumeKey'], '-_', '+/'))), ' ', true) : null;
+        $slice = array_slice(array_values(array_filter($keys, fn (string $key): bool => $from === null || strcmp($key, $from) > 0)), 0, (int) $query['limit']);
+
+        return Http::response(implode("\n", $slice)."\n\nresumekey\n");
+    });
+}
+
+/** @return list<string> */
+function waybackKeys(): array
+{
+    return [
+        'com,teamtailor)/', 'com,teamtailor)/en/pricing', 'com,teamtailor,app)/login',
+        ...array_map(fn (int $i): string => "com,teamtailor,cdn,media)/{$i}.png", range(1, 9)),
+        'com,teamtailor,delorean)/connect', 'com,teamtailor,delorean)/jobs', 'com,teamtailor,delorean-group)/',
+        'com,teamtailor,kry:443)/', 'com,teamtailor,www)/en', 'com,teamtailor,www)/sv', 'com,teamtailor,zenjob)/',
+    ];
+}
+
+it('walks the Internet Archive host by host for slug hosts', function (): void {
+    Sleep::fake();
+    fakeWayback(waybackKeys());
+
+    $this->artisan('radar:discover', ['--source' => ['wayback'], '--sync' => true])
+        ->expectsOutputToContain('4 nya kandidater')
+        ->assertSuccessful();
+
+    expect(Candidate::query()->orderBy('host')->pluck('host')->all())
+        ->toBe(['delorean-group.teamtailor.com', 'delorean.teamtailor.com', 'kry.teamtailor.com', 'zenjob.teamtailor.com'])
+        ->and(Candidate::query()->findOrFail('delorean.teamtailor.com'))
+        ->source->toBe(CandidateSourceType::Wayback)
+        ->strength->toBe(Strength::Strong);
+
+    // The nine CDN keys cost one request: the walk jumps past their host.
+    // The last request, past zenjob, finds the end.
+    Http::assertSentCount(6);
+});
+
+it('carries on past a short answer from the Internet Archive', function (): void {
+    Sleep::fake();
+    $requests = 0;
+    fakeWayback(waybackKeys(), function () use (&$requests) {
+        // The second answer stops after one key, as the real index sometimes does.
+        return ++$requests === 2 ? Http::response("com,teamtailor,cdn,media)/1.png\n") : null;
+    });
+
+    $this->artisan('radar:discover', ['--source' => ['wayback'], '--sync' => true])->assertSuccessful();
+
+    expect(Candidate::query()->count())->toBe(4);
+});
+
+it('walks the Internet Archive in jobs that carry on where the last one stopped', function (): void {
+    Sleep::fake();
+    Carbon::setTestNow('2026-11-05 12:00:00');
+    fakeWayback(waybackKeys(), function () {
+        Carbon::setTestNow(Carbon::now()->addMinutes(25));
+
+        return null;
+    });
+
+    $first = new CollectWaybackCandidates();
+    app()->call([$first, 'handle']);
+
+    expect($first->chained)->toHaveCount(1);
+    $next = unserialize($first->chained[0]);
+    expect($next)->toBeInstanceOf(CollectWaybackCandidates::class)
+        ->and($next->from)->toBe('com,teamtailor,cdn,media)~');
+
+    app()->call([$next, 'handle']);
+    while ($next->chained !== []) {
+        $next = unserialize($next->chained[0]);
+        app()->call([$next, 'handle']);
+    }
+
+    expect(Candidate::query()->count())->toBe(4);
+});
+
+it('keeps what was found and tries again later when the Internet Archive goes offline', function (): void {
+    Sleep::fake();
+    $requests = 0;
+    fakeWayback(waybackKeys(), function () use (&$requests) {
+        return ++$requests > 3
+            ? Http::response('<html><head><title>Internet Archive: Temporarily Offline</title></head></html>')
+            : null;
+    });
+
+    $job = new CollectWaybackCandidates();
+    app()->call([$job, 'handle']);
+
+    $retry = unserialize($job->chained[0]);
+    expect(Candidate::query()->orderBy('host')->pluck('host')->all())->toBe(['delorean-group.teamtailor.com', 'delorean.teamtailor.com'])
+        ->and($retry->from)->toBe('com,teamtailor,delorean-group)~')
+        ->and($retry->failures)->toBe(1)
+        ->and($retry->delay)->toBe(CollectWaybackCandidates::RETRY_AFTER);
+
+    // Without progress the failures add up, and the walk gives up.
+    $stuck = new CollectWaybackCandidates($retry->from, CollectWaybackCandidates::MAX_FAILURES - 1);
+    expect(fn () => app()->call([$stuck, 'handle']))->toThrow(WaybackUnavailable::class);
+
+    $this->artisan('radar:discover', ['--source' => ['wayback'], '--sync' => true])
+        ->expectsOutputToContain('svarar inte just nu')
+        ->assertFailed();
+});
+
 it('syncs a JobStream snapshot, then only changes', function (): void {
     Carbon::setTestNow('2026-09-26 10:00:00');
     Http::fake([
@@ -167,6 +296,7 @@ it('queues the sources as one chain, JobStream sync first', function (): void {
         fn (CrawlPlatformBoards $job): bool => $job->platform === Platform::Greenhouse,
         fn (CrawlPlatformBoards $job): bool => $job->platform === Platform::Lever,
         fn (CrawlPlatformBoards $job): bool => $job->platform === Platform::Ashby,
+        fn (CollectWaybackCandidates $job): bool => $job->from === null,
     ]);
 });
 

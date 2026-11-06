@@ -24,4 +24,6 @@ enum CandidateSourceType: string
     case HttpArchive = 'http_archive';
 
     case SearchApi = 'search_api';
+
+    case Wayback = 'wayback';
 }

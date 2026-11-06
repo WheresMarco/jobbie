@@ -130,6 +130,15 @@ it('sends slug hosts straight to HTTP because of the DNS wildcard', function ():
         ->and($this->dns->queries)->toBe([]);
 });
 
+it('leaves throttled slug hosts for later, but rejects other forbidden hosts', function (int $status): void {
+    Http::fake(['*' => Http::response('Forbidden', $status)]);
+
+    expect(verifier()->verify('acme.teamtailor.com', Strength::Strong))
+        ->stage->toBe(CandidateStage::New)
+        ->reason->toBe("http_{$status}")
+        ->and(verifier()->verify('career.kry.se', Strength::Strong)->reason)->toBe("cname:ext;http_{$status}");
+})->with([403, 429]);
+
 it('verifies many hosts and keeps the input order', function (): void {
     Http::fake(fn (Request $r) => feedResponse((string) parse_url($r->url(), PHP_URL_HOST)));
 

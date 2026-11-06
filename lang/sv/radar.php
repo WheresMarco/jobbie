@@ -61,6 +61,7 @@ return [
         'domains_imported' => ':count nya domäner importerades.',
         'platform_boards' => ':platform: :accounts konton i Platsbankens ansökningslänkar, :created nya karriärsidor.',
         'crawled_boards' => ':platform: :accounts konton i Common Crawl, :created nya karriärsidor.',
+        'unavailable' => 'Källan :source svarar inte just nu. Försök igen senare.',
     ],
     'stats' => [
         'sources' => 'Upptäcktskällor',
@@ -94,6 +95,7 @@ return [
         'txt' => 'TXT (E)',
         'http_archive' => 'HTTP Archive (F)',
         'search_api' => 'Sök-API (G)',
+        'wayback' => 'Internet Archive (H)',
     ],
     'platforms' => [
         'teamtailor' => 'Teamtailor',

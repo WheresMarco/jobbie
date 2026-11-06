@@ -11,6 +11,7 @@ use App\Models\Candidate;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\TeamtailorFeed;
@@ -81,6 +82,32 @@ it('verifies candidates on the sync queue and creates one board per site', funct
         ->and(Board::query()->firstOrFail()->aliases->pluck('host')->all())->toBe(['kry.teamtailor.com'])
         ->and(Candidate::query()->findOrFail('careers.einride.tech')->reason)->toBe('no_fingerprint')
         ->and(Candidate::query()->findOrFail('career.kry.se')->checked_at)->not->toBeNull();
+});
+
+it('verifies throttled hosts again later, a few rounds at most', function (): void {
+    Candidate::factory()->create(['host' => 'acme.teamtailor.com', 'strength' => Strength::Strong, 'source' => CandidateSourceType::Wayback]);
+    Http::fake(['*' => Http::response('Forbidden', 403)]);
+    Bus::fake();
+    Carbon::setTestNow('2026-11-05 14:00:00');
+
+    $job = new VerifyCandidateBatch(['acme.teamtailor.com']);
+    app()->call([$job, 'handle']);
+
+    Bus::assertDispatched(VerifyCandidateBatch::class, fn (VerifyCandidateBatch $retry): bool => $retry->hosts === ['acme.teamtailor.com']
+        && $retry->round === 1
+        && $retry->delay->equalTo(now()->addSeconds(VerifyCandidateBatch::RETRY_AFTER)));
+
+    // A second retry in the same round waits for the next free slot.
+    app()->call([new VerifyCandidateBatch(['acme.teamtailor.com']), 'handle']);
+    Bus::assertDispatched(VerifyCandidateBatch::class, fn (VerifyCandidateBatch $retry): bool => $retry->delay->equalTo(now()->addSeconds(VerifyCandidateBatch::RETRY_AFTER + VerifyCandidateBatch::RETRY_SPACING)));
+    expect(Candidate::query()->findOrFail('acme.teamtailor.com'))
+        ->stage->toBe(CandidateStage::New)
+        ->reason->toBe('http_403');
+
+    $last = new VerifyCandidateBatch(['acme.teamtailor.com'], VerifyCandidateBatch::MAX_ROUNDS);
+    app()->call([$last, 'handle']);
+
+    Bus::assertDispatchedTimes(VerifyCandidateBatch::class, 2);
 });
 
 it('says so when there is nothing to verify', function (): void {

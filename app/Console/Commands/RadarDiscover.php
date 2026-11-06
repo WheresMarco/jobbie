@@ -9,8 +9,10 @@ use App\Discovery\CandidateCollector;
 use App\Discovery\JobStream\JobStreamSync;
 use App\Discovery\PlatformBoardDiscovery;
 use App\Discovery\SourceRegistry;
+use App\Discovery\WaybackUnavailable;
 use App\Enums\CandidateSourceType;
 use App\Jobs\CollectCandidates;
+use App\Jobs\CollectWaybackCandidates;
 use App\Jobs\CrawlPlatformBoards;
 use App\Jobs\DiscoverPlatformBoards;
 use App\Jobs\QueueVerification;
@@ -26,7 +28,7 @@ final class RadarDiscover extends Command
     use Translates;
 
     protected $signature = 'radar:discover
-        {--source=* : Sources to run (jobstream, prefixes, commoncrawl); default from config}
+        {--source=* : Sources to run (jobstream, prefixes, commoncrawl, wayback); default from config}
         {--domains= : CSV with base domains for prefix probing (domain, org number, company name)}
         {--sync : Run in this process instead of queueing}
         {--verify : Queue verification after the sources have run}';
@@ -75,7 +77,13 @@ final class RadarDiscover extends Command
                     }
                 }
 
-                $counts = $collector->collect($sources->source($type));
+                try {
+                    $counts = $collector->collect($sources->source($type));
+                } catch (WaybackUnavailable $e) {
+                    $this->components->error($this->t('radar.discover.unavailable', ['source' => $type->value]));
+
+                    return self::FAILURE;
+                }
                 $this->components->info($this->t('radar.discover.collected', ['source' => $type->value, ...$counts]));
 
                 if ($type === CandidateSourceType::CommonCrawl) {
@@ -94,7 +102,8 @@ final class RadarDiscover extends Command
                 $chain[] = new SyncJobStream();
                 $chain[] = new DiscoverPlatformBoards();
             }
-            $chain[] = new CollectCandidates($type);
+            // Source H reads its index a window of pages per job.
+            $chain[] = $type === CandidateSourceType::Wayback ? new CollectWaybackCandidates() : new CollectCandidates($type);
             if ($type === CandidateSourceType::CommonCrawl) {
                 foreach ($platforms->crawlable() as $platform) {
                     $chain[] = new CrawlPlatformBoards($platform);

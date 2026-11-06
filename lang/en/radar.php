@@ -61,6 +61,7 @@ return [
         'domains_imported' => ':count new domains imported.',
         'platform_boards' => ':platform: :accounts accounts in Platsbanken apply links, :created new career sites.',
         'crawled_boards' => ':platform: :accounts accounts in Common Crawl, :created new career sites.',
+        'unavailable' => 'Source :source is not answering right now. Try again later.',
     ],
     'stats' => [
         'sources' => 'Discovery sources',
@@ -94,6 +95,7 @@ return [
         'txt' => 'TXT (E)',
         'http_archive' => 'HTTP Archive (F)',
         'search_api' => 'Search API (G)',
+        'wayback' => 'Internet Archive (H)',
     ],
     'platforms' => [
         'teamtailor' => 'Teamtailor',

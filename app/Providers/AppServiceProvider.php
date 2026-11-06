@@ -13,6 +13,7 @@ use App\Discovery\Sources\PrefixSource;
 use App\Discovery\Sources\SearchApiSource;
 use App\Discovery\Sources\TxtRecordSource;
 use App\Discovery\Verifier;
+use App\Discovery\WaybackIndex;
 use App\Matching\CandidateFinder;
 use App\Matching\ClaudeLanguageModel;
 use App\Matching\Contracts\LanguageModel;
@@ -148,6 +149,11 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(CommonCrawlIndex::class, static fn (): CommonCrawlIndex => new CommonCrawlIndex(
             indexCount: config()->integer('radar.commoncrawl.index_count'),
+            userAgent: config()->string('radar.user_agent'),
+            timeout: config()->integer('radar.http_timeout'),
+        ));
+
+        $this->app->bind(WaybackIndex::class, static fn (): WaybackIndex => new WaybackIndex(
             userAgent: config()->string('radar.user_agent'),
             timeout: config()->integer('radar.http_timeout'),
         ));
