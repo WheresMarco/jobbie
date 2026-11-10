@@ -1,16 +1,44 @@
-# Jobbie
+<p align="center">
+  <img src="public/icon.svg" width="72" height="72" alt="">
+</p>
 
-Laravel-applikation som samlar lediga jobb i Sverige och visar dem i ett filtrerbart webbgränssnitt. Annonserna hämtas direkt från arbetsgivarnas rekryteringssystem (Teamtailor, Varbi, SmartRecruiters, Workday, Greenhouse, Lever och Ashby) och från Platsbanken. För Teamtailor hittas även karriärsidor på egen domän (till exempel `career.foretag.se`).
+<h1 align="center">Jobbie</h1>
 
-Projektet byggs i faser. Klart hittills: Fas 0 (projektuppsättning), Fas 1 (kalibrering av fingeravtryck), Fas 2 (domänmodell), Fas 3 (skrapning), Fas 4 (verifiering), Fas 5 (källorna A till G), Fas 6 (deduplicering), Fas 7 (schemaläggning och statistik), Fas 8 (webbgränssnitt) och Fas 9 (överlapp mot Platsbanken). Därefter har fler källor än Teamtailor lagts till (se Plattformar).
+<p align="center">
+  <strong>Jobs, straight from the employers’ career sites.</strong><br>
+  A Laravel app that finds Swedish companies that are hiring, collects their job postings and lets you search, track and match them against your CV.
+</p>
 
-## Krav
+![The Jobbie landing page](docs/screenshots/landing.png)
 
-* PHP 8.4 med tilläggen `intl`, `pdo_mysql`, `pcntl` och `redis`
-* Composer 2
-* MySQL 8 och Redis 7 (eller Docker)
+Many jobs are only posted on a company’s own career site. Jobbie reads postings directly from the employers’ recruitment systems (Teamtailor, Varbi, SmartRecruiters, Workday, Greenhouse, Lever and Ashby) and from Platsbanken, removes duplicates and shows everything in one filterable list. For Teamtailor it also finds career sites on the employer’s own domain (for example `career.company.se`).
 
-## Kom igång
+**Features**
+
+* One list of every active posting, grouped by employer or flat, with free-text search and filters for country, city, remote work, department and publishing date.
+* Unseen postings are marked and counted, so you see what is new since your last visit.
+* Mark postings as *To do*, *Applied*, *Rejected* or *Not relevant*, and hide whole companies.
+* Upload a CV and let Jobbie AI (Claude) score how well each posting fits you, from 0 to 100, with a reason.
+* Postings are refreshed every night, and new employers are discovered every week.
+
+The interface is in Swedish by default, with an English translation (`APP_LOCALE=sv` or `en`).
+
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Logging in](docs/screenshots/login.png) | ![The welcome page after signing up](docs/screenshots/welcome.png) |
+| **Log in.** The brand panel explains the app; registration is one click away. | **Welcome.** New accounts land here, with live numbers and three steps to get started. |
+| ![The job list](docs/screenshots/jobs.png) | ![CV matching](docs/screenshots/cv-matching.png) |
+| **Job list.** Filters with live counts, grouped by employer, unseen postings marked with a dot. | **CV matching.** An editable profile from the CV, and postings scored 0–100 with a reason. |
+
+## Requirements
+
+* PHP 8.4 with the `intl`, `pdo_mysql`, `pcntl` and `redis` extensions
+* Composer 2 and Node.js (for the front-end build)
+* MySQL 8 and Redis 7 (or Docker)
+
+## Getting started
 
 ```sh
 cp .env.example .env
@@ -18,200 +46,224 @@ docker compose up -d mysql redis
 composer install
 php artisan key:generate
 php artisan migrate
-php artisan radar:user din@adress.se --admin
+npm install && npm run build
+php artisan radar:user you@example.com --admin
 ```
 
-Hela miljön (webbserver, Horizon, MySQL och Redis) startas med `docker compose up -d`. Gränssnittet behöver byggda resurser (`npm install && npm run build`). Med `php artisan db:seed --class=DemoSeeder` fylls databasen med påhittade annonser att prova med.
+`docker compose up -d` starts the whole environment (web server, Horizon, MySQL and Redis). `php artisan db:seed --class=DemoSeeder` fills the database with made-up postings to try things out with.
 
-Schemat i `routes/console.php` körs med `php artisan schedule:work` (eller cron mot `schedule:run`): skrapning varje natt, upptäckt och verifiering varje måndag, Public Suffix List varje söndag och Horizons ögonblicksbilder var femte minut.
+The schedule in `routes/console.php` runs with `php artisan schedule:work` (or cron calling `schedule:run`): scraping every night at 03:00, Platsbanken duplicate matching at 05:30, discovery and verification every Monday, the Public Suffix List every Sunday and Horizon snapshots every five minutes.
 
-## Kontroller
+## Checks
 
-| Kommando | Vad det gör |
+| Command | What it does |
 | --- | --- |
-| `composer test` | Pest utan MySQL (SQLite i minnet) |
-| `composer test:mysql` | Tester i gruppen `mysql`, kräver en MySQL-databas enligt `DB_*` |
-| `composer analyse` | Larastan, nivå 6 |
-| `composer lint` | Pint i kontrolläge (PSR-12 och `declare(strict_types=1)`) |
-| `composer format` | Pint som rättar filerna |
+| `composer test` | Pest without MySQL (in-memory SQLite) |
+| `composer test:mysql` | The tests in the `mysql` group; needs a MySQL database as configured in `DB_*` |
+| `composer analyse` | Larastan, level 6 |
+| `composer lint` | Pint in check mode (PSR-12 and `declare(strict_types=1)`) |
+| `composer format` | Pint, fixing the files |
 
-Alla tester körs offline. `Http::preventStrayRequests()` är aktivt och DNS samt TLS är utbytta mot fejkade klienter i `tests/Fakes`.
+All tests run offline. `Http::preventStrayRequests()` is on, and DNS and TLS are replaced by fake clients in `tests/Fakes`.
 
-## Kommandon
+## Commands
 
-| Kommando | Vad det gör |
+| Command | What it does |
 | --- | --- |
-| `radar:user {e-post}` | Skapar ett konto, eller sätter nytt lösenord för ett befintligt. Lösenordet (minst 8 tecken) frågas efter. `--name=` sätter visningsnamnet och `--admin` ger adminrättigheter |
-| `radar:admin {e-post}` | Ger ett befintligt konto adminrättigheter. `--revoke` tar bort dem |
-| `radar:calibrate {värdar*}` | Sparar DNS, TLS och HTTP för kända karriärsidor (se Kalibrering) |
-| `radar:import-legacy {sökväg}` | Läser Python-prototypens SQLite-fil och skapar starka kandidater med källan `seed` |
-| `radar:update-psl` | Hämtar Public Suffix List till `storage/app/psl/` |
-| `radar:discover` | Samlar kandidater från källorna i `RADAR_SOURCES` eller `--source=` (`jobstream`, `prefixes`, `commoncrawl`, `wayback`). `--domains=fil.csv` lägger till basdomäner för prefixprobning, `--sync` kör allt i samma process i stället för i kön |
-| `radar:verify` | Köar verifiering av nya kandidater, i batchar om 200, starka först. Avvisade kandidater och fingeravtrycksträffar utan flöde provas igen efter `RADAR_REJECTED_RECHECK_DAYS` dagar. `--source=` och `--limit=` begränsar urvalet |
-| `radar:smoke {värdar?*}` | Manuellt röktest mot riktiga karriärsidor (standard tre kända). Verifierar och läser flöde och RSS utan att skriva till databasen. Ingår inte i CI |
-| `radar:match-platsbanken` | Döljer Platsbankens kopior av annonser som även läses från arbetsgivarens eget system (körs varje natt) |
-| `radar:stats` | Kandidater per källa och steg, aktiva karriärsidor och annonser per källa, fördelning per typ och status, verifierade per prefix och TXT-kunder utan hittad sida |
-| `radar:match {e-post} {cv?}` | Matchar ett CV (PDF) mot annonserna med Claude, utan kön, och listar de bästa matchningarna. Utan fil matchas kontots nuvarande profil mot nya annonser. `--preferences=` sätter önskemål och `--top=` antal rader |
-| `radar:scrape` | Köar skrapning av alla karriärsidor som en batch och visar framsteg. `--only-active` tar bara sidor som hade annonser, `--host=` väljer sidor via kanonisk värd eller alias, `--platform=` väljer plattformar (`teamtailor`, `varbi`, `smartrecruiters`, `workday`, `greenhouse`, `lever`, `ashby`, `platsbanken`), `--no-wait` avslutar direkt efter köandet. Platsbanken läses från JobStream i stället för att skrapas: körningen köar `SyncJobStream`, utom när den är begränsad med `--host=` eller till andra plattformar |
+| `radar:user {email}` | Creates an account, or sets a new password for an existing one. Asks for the password (at least 8 characters). `--name=` sets the display name and `--admin` grants admin rights |
+| `radar:admin {email}` | Grants an existing account admin rights. `--revoke` takes them away |
+| `radar:calibrate {hosts*}` | Records DNS, TLS and HTTP for known career sites (see Calibration) |
+| `radar:import-legacy {path}` | Reads the Python prototype’s SQLite file and creates strong candidates with the source `seed` |
+| `radar:update-psl` | Downloads the Public Suffix List to `storage/app/psl/` |
+| `radar:discover` | Collects candidates from the sources in `RADAR_SOURCES` or `--source=` (`jobstream`, `prefixes`, `commoncrawl`, `wayback`). `--domains=file.csv` adds base domains for prefix probing, `--sync` runs everything in-process instead of on the queue |
+| `radar:verify` | Queues verification of new candidates, in batches of 200, strong ones first. Rejected candidates and fingerprint matches without a feed are retried after `RADAR_REJECTED_RECHECK_DAYS` days. `--source=` and `--limit=` narrow the selection |
+| `radar:smoke {hosts?*}` | Manual smoke test against real career sites (three known ones by default). Verifies and reads the feed and RSS without writing to the database. Not part of CI |
+| `radar:match-platsbanken` | Hides Platsbanken’s copies of postings that are also read from the employer’s own system (runs every night) |
+| `radar:stats` | Candidates per source and stage, active career sites and postings per source, breakdown by type and status, verified sites per prefix and TXT customers without a found site |
+| `radar:match {email} {cv?}` | Matches a CV (PDF) against the postings with Claude, without the queue, and lists the best matches. Without a file, the account’s current profile is matched against new postings. `--preferences=` sets preferences and `--top=` the number of rows |
+| `radar:scrape` | Queues a scrape of every career site as a batch and shows progress. `--only-active` takes only sites that had postings, `--host=` picks sites by canonical host or alias, `--platform=` picks platforms (`teamtailor`, `varbi`, `smartrecruiters`, `workday`, `greenhouse`, `lever`, `ashby`, `platsbanken`), `--no-wait` exits right after queueing. Platsbanken is read from JobStream rather than scraped: the run queues `SyncJobStream`, unless it is limited with `--host=` or to other platforms |
 
-`radar:import-legacy` letar i varje tabell efter den första kolumnen som heter `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` eller `base_url`, eftersom prototypens schema inte finns i repot. Värdena normaliseras och redan kända värdar hoppas över.
+`radar:import-legacy` looks in every table for the first column named `host`, `hostname`, `canonical_host`, `board_host`, `domain`, `url`, `career_url`, `home_url`, `feed_url` or `base_url`, since the prototype’s schema is not in the repository. Values are normalised and hosts already known are skipped.
 
-Registrerbar domän räknas fram med Public Suffix List. En kopia ligger i `resources/psl/` och används tills `radar:update-psl` har hämtat en egen.
+The registrable domain is worked out with the Public Suffix List. A copy is kept in `resources/psl/` and used until `radar:update-psl` has downloaded a fresh one.
 
-## Upptäckt och verifiering
+## Web interface
 
-Kandidater (möjliga karriärsidor) och verifierade karriärsidor ligger i separata tabeller. Varje kandidat har en källa och en styrka.
+| Path | Page |
+| --- | --- |
+| `/` | For guests, the landing page: what Jobbie does, live numbers, the sources, features, CV matching, how it works and an FAQ. For signed-in users, the job list |
+| `/login`, `/register` | Log in and create an account |
+| `/valkommen` | The welcome page new accounts land on, also reachable from the account menu (*Get started*) |
+| `/mina` | The user’s marked postings and hidden companies |
+| `/matcha` | CV matching |
+| `/konto` | Account settings: name and email, password, deleting the account, and what is saved for it |
+| `/stats` | The same statistics as `radar:stats`, for admins only |
+| `/horizon` | Horizon, for admins only (open without login locally) |
 
-| Källa | Styrka | Hur |
+The landing page is served by `App\Http\Middleware\ShowLandingToGuests`, which runs before `auth` on `/` so that the job list and the landing page share the URL. The numbers on the landing and welcome pages (`App\Stats\Coverage`) are cached for ten minutes.
+
+The job list shows every active posting, grouped by employer or as a flat list. Grouping is by the posting’s employer rather than the career site, because staffing agencies post on behalf of their clients. The filters (free text, unseen, country, city, workplace, department, publishing date, newly discovered, source and kind of Teamtailor site) are kept in the URL, and each filter shows the number of hits given the other filters. The counts are cached for a minute per filter combination.
+
+Free text searches the title, employer and description with MySQL FULLTEXT in boolean mode, as `+word*` per word. A word therefore matches at the start of words: “utvecklare” does not find “Backendutvecklare”. Words shorter than three characters are searched with LIKE, as they are below InnoDB’s minimum word length.
+
+The search (`App\Search\JobSearch`) matches the free text in SQL and then reads one narrow row per hit through a covering index. The total, every facet and the groups are counted in a single pass in PHP, and only the postings on screen are loaded in full. A group’s postings are loaded when it is expanded. The `composer test:mysql` suite seeds 50,000 postings with `DemoSeeder` and requires typical pages to respond within 300 ms (best of three runs, with the result cache cleared before each). A search word found in almost every posting is slower, as InnoDB’s full-text search itself becomes the bottleneck.
+
+### Look and feel
+
+The UI is built with Livewire 4 and Tailwind CSS 4, with the Plus Jakarta Sans font (from Bunny Fonts). The brand colour is defined as the `accent` scale in `resources/css/app.css`; the logo is `public/icon.svg`, with PNG and ICO variants and a web manifest next to it. Icons are Lucide outlines in the `<x-icon>` component. The sources’ logos on the landing page live in `public/images/sources/{platform}.svg` (or `.png`); a platform without a file is shown by name. Avatars come from Gravatar, with the user’s initials as the fallback. Error pages (403, 404, 419, 429, 500 and 503) share one branded layout in `resources/views/errors/brand.blade.php`.
+
+## Accounts and marks
+
+Anyone can create an account on `/register` (name, email and a password of at least 8 characters) and is signed in right away. Every page except the landing page, login and registration needs an account. Registration allows at most five new accounts per IP address and hour, and can be turned off with `RADAR_REGISTRATION=false`; the landing page then only offers logging in. After five failed login attempts, logging in is blocked for that address for a while.
+
+On `/konto`, users change their name, email and password, and can delete their account. Deleting needs the password and removes the account’s marks, hidden companies and CV profile with it.
+
+There are two roles. Regular users see the postings and their own marks. Admins also see the statistics and Horizon, both linked from the account menu with an *Admin* badge. Nobody becomes an admin by registering, only through `php artisan radar:admin {email}` or `radar:user --admin`.
+
+Each user can mark postings:
+
+* **To do** for postings to work on.
+* **Applied** once the application is sent.
+* **Rejected** for postings worked on but turned down.
+* **Not relevant** for postings of no interest at all.
+
+Rejected and not relevant postings are left out of the job list. Clicking the active mark again removes it. `/mina` shows marked postings per status, most recently changed first, including postings that have closed.
+
+Whole companies can be marked as not relevant too, with the button on the company group or *Hide the company* in the flat list. That hides all of the company’s postings, including ones discovered later, and they no longer count as unseen. A company is recognised by the same name the list groups on: the posting’s employer, or else the career site’s name. A staffing agency’s clients are therefore hidden one by one. Hidden companies are listed under the *Not relevant* tab on `/mina`, where they can be shown again.
+
+A posting is **unseen** until the user marks it, opens it, picks *Mark as seen* or presses *Mark all as seen*. The last one only moves a timestamp on the account, so postings discovered afterwards are unseen again. The *Jobs* menu item shows the unseen count and opens the list filtered on unseen postings.
+
+Marks are stored in `job_posting_marks`, one row per user and posting the user has seen or marked, and hidden companies in `hidden_employers`. Search results are cached per user and recounted when the user’s marks change.
+
+With `RADAR_BASIC_AUTH_USER` and `RADAR_BASIC_AUTH_PASSWORD` set, HTTP Basic Auth is required in front of the whole app as well, for example while testing a server before opening it. Without them, Basic Auth has no effect.
+
+## CV matching
+
+On `/matcha`, users upload their CV as a PDF, optionally with preferences in free text (for example “Linköping or remote”). Claude reads the CV and then judges the postings most like it. The interface calls it Jobbie AI. The feature needs a Claude API key in `ANTHROPIC_API_KEY` and is off without one; the landing page leaves it out too.
+
+1. **Profile.** The PDF is sent to Claude as is, so CVs with columns and scanned pages work. The answer is a structured profile: headline, summary, seniority, roles, skills, locations, countries and search terms in Swedish and English, including compound titles such as “backendutvecklare”. The file is then deleted. Only the profile is kept, without name or contact details.
+2. **Candidates.** The search terms run against FULLTEXT in boolean mode, where any term is enough. Terms in the title weigh three times as much (a separate FULLTEXT index on the title), and only postings in the profile’s countries or without a known location are included. Hidden postings and companies are skipped, as are repeats (the same title at the same employer, or the same title and opening under another name for the employer). The best `RADAR_MATCH_CANDIDATES` (300 by default) move on.
+3. **Scoring.** Claude gives each posting 0–100 and one sentence on why, `RADAR_MATCH_CHUNK_SIZE` postings per call (20 by default). The calls run in parallel on the queue (`AnalyzeResume` and then a batch of `ScoreResumeMatches`). Descriptions are cut to 3,000 characters.
+
+The list shows postings with at least `RADAR_MATCH_MIN_SCORE` points (50 by default), and weaker ones on request. Under *Fits as* and *Skills*, users can add their own roles and skills and remove Claude’s. The changes are stored separately (the `additions` and `removals` columns), so they survive replacing the CV or changing the preferences. Own additions go first among the search terms, and removed ones take the search terms containing them along (removing PHP also removes “PHP developer”). After a change, *Search new postings* becomes *Match again*, which judges every posting against the new profile. Otherwise *Search new postings* only sends postings not judged before. Changed preferences rebuild the profile from the stored one (the CV is gone) and judge everything again. Each upload, change and new search counts against `RADAR_MATCH_DAILY_RUNS` per user and day (10 by default), since the calls cost money.
+
+The model is `claude-haiku-5-5` with `effort` `medium` (`RADAR_MATCH_MODEL`, `RADAR_MATCH_EFFORT`). A full match of 300 postings is around 420,000 tokens in and 50,000 out, about seven cents with Haiku. `claude-sonnet-5-5` or `claude-opus-5-5` judge more carefully but cost roughly 20 and 40 times as much. With those, server-side fallback is on: if the model declines a call for policy reasons, the API tries its default fallback. Haiku has none. Every call is logged with its token counts.
+
+## Discovery and verification
+
+Candidates (possible career sites) and verified career sites are kept in separate tables. Every candidate has a source and a strength.
+
+| Source | Strength | How |
 | --- | --- | --- |
-| A, omdirigeringar | stark | Vid varje skrapning sparas slutvärden för `jobs.json` och värden i flödets `home_page_url` som alias. Inga extra anrop |
-| B, Platsbanken | stark | JobTech JobStream: först `/snapshot` (cirka 300 MB, läses strömmande från disk), sedan bara ändringar via `/stream?date=`. Ansökningslänkar med sökvägen `/jobs/<siffror>-` eller värd under `teamtailor.com` blir kandidater. Arbetsgivarens webbadress blir en basdomän för källa C. Annonserna sparas i `platsbanken_ads` |
-| C, prefix | svag | Varje prefix i `config/radar.php` provas mot alla kända basdomäner och mot registrerbara domäner för kända egna domäner. Prefixet sparas i `source_ref` så att träffar kan räknas per prefix |
-| D, Common Crawl | stark | Alla `*.teamtailor.com` i de senaste indexen (`RADAR_COMMONCRAWL_INDEXES`, standard tre) via CDX-API:t, sida för sida med en sekunds paus. Samma körning hämtar konton på Greenhouse, Lever och Ashby (se Plattformar) |
-| E, TXT | stark | TXT-posterna på varje känd basdomän läses. En Teamtailor-verifieringspost (`teamtailor=<32 hextecken>`) markerar domänen som kund, och en utökad prefixlista (`txt_prefixes`) provas under den. Domäner kontrolleras om efter `RADAR_TXT_RECHECK_DAYS` dagar. Kunder där ingen sida hittas syns på statistiksidan |
-| F, HTTP Archive | svag, avstängd | BigQuery-fråga mot `httparchive.crawl.pages` i ditt eget Google Cloud-projekt (se nedan) |
-| G, sök-API | svag, avstängd | Brave Search API med nyckeln i `RADAR_SEARCH_API_KEY`. Frågorna står i `config/radar.php`, en förfrågan per sekund |
-| H, Internet Archive | stark | Alla `*.teamtailor.com` som Wayback Machine har sparat sedan 2012, via dess CDX-API. Hittar många fler konton än Common Crawl, även sådana som har lagt ned (verifieringen sorterar bort dem). Indexet läses 5 000 nycklar åt gången och hoppar förbi varje värd det redan sett, så en stor värd kostar en fråga. Varje köat jobb går i högst 40 minuter och köar nästa från samma nyckel; svarar arkivet inte väntar nästa jobb en halvtimme |
+| A, redirects | strong | Every scrape stores the final hosts for `jobs.json` and the host in the feed’s `home_page_url` as aliases. No extra requests |
+| B, Platsbanken | strong | JobTech JobStream: first `/snapshot` (about 300 MB, streamed from disk), then only changes through `/stream?date=`. Application links with the path `/jobs/<digits>-` or a host under `teamtailor.com` become candidates. The employer’s web address becomes a base domain for source C. Postings are stored in `platsbanken_ads` |
+| C, prefixes | weak | Every prefix in `config/radar.php` is tried against all known base domains and against the registrable domains of known custom domains. The prefix is stored in `source_ref`, so hits can be counted per prefix |
+| D, Common Crawl | strong | Every `*.teamtailor.com` in the latest indexes (`RADAR_COMMONCRAWL_INDEXES`, three by default) through the CDX API, page by page with a one-second pause. The same run collects accounts on Greenhouse, Lever and Ashby (see Platforms) |
+| E, TXT | strong | The TXT records of every known base domain are read. A Teamtailor verification record (`teamtailor=<32 hex characters>`) marks the domain as a customer, and an extended prefix list (`txt_prefixes`) is tried under it. Domains are checked again after `RADAR_TXT_RECHECK_DAYS` days. Customers where no site is found show up on the statistics page |
+| F, HTTP Archive | weak, off | A BigQuery query against `httparchive.crawl.pages` in your own Google Cloud project (see below) |
+| G, search API | weak, off | Brave Search API with the key in `RADAR_SEARCH_API_KEY`. The queries are in `config/radar.php`, one request per second |
+| H, Internet Archive | strong | Every `*.teamtailor.com` the Wayback Machine has stored since 2012, through its CDX API. Finds many more accounts than Common Crawl, including ones that have shut down (verification sorts those out). The index is read 5,000 keys at a time and skips past every host it has already seen, so a large host costs one query. Each queued job runs for at most 40 minutes and queues the next from the same key; if the archive does not answer, the next job waits half an hour |
 
-Källorna E, F och G körs med `radar:discover --source=txt`, `--source=httparchive` och `--source=search`, eller läggs till i `RADAR_SOURCES`.
+Sources E, F and G run with `radar:discover --source=txt`, `--source=httparchive` and `--source=search`, or by adding them to `RADAR_SOURCES`.
 
-Källa E vilar på ett TXT-mönster som hittills bara är bekräftat mot en domän (se Kalibrering). Mönstret är specifikt nog för att inte ge falska träffar, men andelen kunder som har posten är okänd.
+Source E rests on a TXT pattern so far confirmed against a single domain (see Calibration). The pattern is specific enough not to give false hits, but the share of customers that have the record is unknown.
 
-Källa F: HTTP Archives teknikdetektering (deras gren av Wappalyzer, kontrollerad 25 september 2026) känner igen Teamtailor, men bara via JavaScript-globalen `Teamtailor.Ziggeo` (Teamtailors videofunktion). Crawlen täcker dessutom främst startsidor för populära domäner. Källan hittar därför framför allt arbetsgivares huvudsajter som bäddar in Teamtailor, inte karriärsidorna själva. Varje värd blir en svag kandidat och dess registrerbara domän läggs i `domains`, där källorna C och E provar prefix. Frågan körs mot månadens crawl (`RADAR_HTTP_ARCHIVE_DATE`, standard första dagen förra månaden), kräver ett servicekonto (`RADAR_HTTP_ARCHIVE_PROJECT`, `RADAR_HTTP_ARCHIVE_CREDENTIALS` med sökväg till JSON-nyckeln) och stoppas av BigQuery om den skulle läsa mer än `RADAR_HTTP_ARCHIVE_MAX_BYTES` (standard 200 GB). Källan är avstängd som standard, eftersom den kostar pengar och ger få direkta träffar.
+Source F: HTTP Archive’s technology detection (their fork of Wappalyzer, checked on 25 September 2026) recognises Teamtailor, but only through the JavaScript global `Teamtailor.Ziggeo` (Teamtailor’s video feature). The crawl also mostly covers the start pages of popular domains. The source therefore mainly finds employers’ main sites that embed Teamtailor, not the career sites themselves. Each host becomes a weak candidate and its registrable domain is added to `domains`, where sources C and E try prefixes. The query runs against the month’s crawl (`RADAR_HTTP_ARCHIVE_DATE`, by default the first day of last month), needs a service account (`RADAR_HTTP_ARCHIVE_PROJECT`, and `RADAR_HTTP_ARCHIVE_CREDENTIALS` with the path to the JSON key) and is stopped by BigQuery if it would read more than `RADAR_HTTP_ARCHIVE_MAX_BYTES` (200 GB by default). The source is off by default, as it costs money and gives few direct hits.
 
-JobStreams endpoints och fält är kontrollerade mot JobStreams källkod (gitlab.com/arbetsformedlingen/job-ads/jobsearch-apis), eftersom dokumentationen inte gick att nå från utvecklingsmiljön. API:et kräver ingen nyckel. `RADAR_JOBSTREAM_API_KEY` skickas som `api-key` bara om den är satt.
+JobStream’s endpoints and fields were checked against JobStream’s source code (gitlab.com/arbetsformedlingen/job-ads/jobsearch-apis), as the documentation could not be reached from the development environment. The API needs no key. `RADAR_JOBSTREAM_API_KEY` is sent as `api-key` only when set.
 
-Verifieringen går från billigt till dyrt:
+Verification goes from cheap to expensive:
 
-1. **DNS.** A-post via DNS over HTTPS, med hela CNAME-kedjan. Saknas namnet blir steget `no_dns`. DNS-fel lämnar kandidaten som `new` till nästa körning. Slug-adresser under `teamtailor.com` hoppar över DNS eftersom de ligger bakom ett jokertecken.
-2. **Fingeravtryck.** CNAME-kedjan eller adresserna jämförs med `Fingerprint`. Svaga kandidater utan träff avvisas här, starka går vidare.
-3. **HTTP.** `jobs.json` hämtas med omdirigeringar. Bara ett läsbart jobbflöde ger `verified`. Teamtailor stryper efter ett par tusen snabba frågor: svarar en slug-adress 403 eller 429 lämnas den som `new` och provas igen i samma batch efter tio minuter, utspritt, högst fem gånger.
-4. **Reserv.** Svarar en stark kandidat 404 letas HTML-markörer på startsidan. En träff loggas som `fingerprint_match`, men ingen karriärsida skapas utan flöde.
+1. **DNS.** An A record over DNS over HTTPS, with the whole CNAME chain. Without the name, the stage becomes `no_dns`. DNS errors leave the candidate as `new` for the next run. Slug addresses under `teamtailor.com` skip DNS since they sit behind a wildcard.
+2. **Fingerprint.** The CNAME chain or the addresses are compared with `Fingerprint`. Weak candidates without a hit are rejected here; strong ones move on.
+3. **HTTP.** `jobs.json` is fetched, following redirects. Only a readable job feed gives `verified`. Teamtailor throttles after a couple of thousand quick requests: if a slug address answers 403 or 429, it stays `new` and is retried in the same batch after ten minutes, spread out, at most five times.
+4. **Fallback.** If a strong candidate answers 404, the start page is searched for HTML markers. A hit is logged as `fingerprint_match`, but no career site is created without a feed.
 
-## Deduplicering
+## Deduplication
 
-Karriärsidor skapas bara via `BoardResolver`. Kanonisk värd är värden i flödets `home_page_url`, och annars värden där `jobs.json` hamnade efter omdirigeringar. Alla andra värdar som leder dit sparas som alias. Om en slug visar sig höra till en redan känd egen domän slås karriärsidorna ihop. Detsamma gäller två karriärsidor med exakt samma uppsättning aktiva annonser (minst tre). Den som upptäcktes först behålls, annonserna flyttas och den andras värd blir alias.
+Career sites are only created through `BoardResolver`. The canonical host is the host in the feed’s `home_page_url`, or else the host `jobs.json` ended up on after redirects. Every other host leading there is stored as an alias. If a slug turns out to belong to an already known custom domain, the career sites are merged. The same goes for two career sites with exactly the same set of active postings (at least three). The one discovered first is kept, the postings are moved and the other’s host becomes an alias.
 
-## Plattformar
+## Platforms
 
-En karriärsida (`boards`) är ett konto på en plattform. Den identifieras av `platform` och `external_key`: för Teamtailor den kanoniska värden, för övriga kontots namn på plattformen. Flera konton kan dela värd, till exempel `jobs.smartrecruiters.com`. Varje plattform har en adapter i `App\Platforms\Adapters` som känner igen konton och jobb i länkar och läser ett kontos öppna annonser.
+A career site (`boards`) is an account on a platform. It is identified by `platform` and `external_key`: for Teamtailor the canonical host, for the others the account’s name on the platform. Several accounts can share a host, for example `jobs.smartrecruiters.com`. Each platform has an adapter in `App\Platforms\Adapters` that recognises accounts and jobs in links and reads an account’s open postings.
 
-| Plattform | Konto | Hur annonserna läses |
+| Platform | Account | How postings are read |
 | --- | --- | --- |
-| Teamtailor | Kanonisk värd | `jobs.json` och `jobs.rss` (se Skrapning) |
-| Varbi | `<konto>.varbi.com` | RSS-flödet `/what:rssfeed/` med alla öppna jobb. Flödet saknar ort, se Dubbletter mellan Platsbanken och andra källor |
-| SmartRecruiters | Företags-id i `jobs.smartrecruiters.com/<id>` | Det publika Posting API:t (`api.smartrecruiters.com`, ingen nyckel), filtrerat på land, och en förfrågan per annons för texten |
-| Workday | `<tenant>.wd<N>.myworkdayjobs.com/<sajt>` | Sajtens eget JSON-API (`/wday/cxs/...`, 20 annonser per sida), filtrerat med sajtens landsfacett, och en förfrågan per annons för text, orter och datum |
-| Greenhouse | Tavlans namn i `job-boards.greenhouse.io/<namn>` | Job Board API (`boards-api.greenhouse.io`, ingen nyckel): listan utan texter, sedan en förfrågan per annons i landet för text, avdelning och kontor |
-| Lever | Företagsnamnet i `jobs.lever.co/<namn>` (eller `jobs.eu.lever.co`) | Postings API (`api.lever.co` eller `api.eu.lever.co`, ingen nyckel), alla annonser med text i ett svar. Företagets namn läses en gång från jobblistans sidtitel |
-| Ashby | Tavlans namn i `jobs.ashbyhq.com/<namn>` | Job Posting API (`api.ashbyhq.com`, ingen nyckel), alla annonser med text och adress i ett svar. Företagets namn läses en gång från jobblistans sidtitel |
-| Platsbanken | Ett enda konto | Fylls av JobStream-synken (källa B), se nedan |
+| Teamtailor | Canonical host | `jobs.json` and `jobs.rss` (see Scraping) |
+| Varbi | `<account>.varbi.com` | The RSS feed `/what:rssfeed/` with every open job. The feed has no location; see Duplicates between Platsbanken and other sources |
+| SmartRecruiters | Company id in `jobs.smartrecruiters.com/<id>` | The public Posting API (`api.smartrecruiters.com`, no key), filtered on country, and one request per posting for the text |
+| Workday | `<tenant>.wd<N>.myworkdayjobs.com/<site>` | The site’s own JSON API (`/wday/cxs/...`, 20 postings per page), filtered with the site’s country facet, and one request per posting for text, locations and dates |
+| Greenhouse | Board name in `job-boards.greenhouse.io/<name>` | Job Board API (`boards-api.greenhouse.io`, no key): the list without texts, then one request per posting in the country for text, department and office |
+| Lever | Company name in `jobs.lever.co/<name>` (or `jobs.eu.lever.co`) | Postings API (`api.lever.co` or `api.eu.lever.co`, no key), every posting with its text in one response. The company’s name is read once from the job list’s page title |
+| Ashby | Board name in `jobs.ashbyhq.com/<name>` | Job Posting API (`api.ashbyhq.com`, no key), every posting with text and address in one response. The company’s name is read once from the job list’s page title |
+| Platsbanken | A single account | Filled by the JobStream sync (source B), see below |
 
-Endpoints och fält är kontrollerade mot respektive tjänst den 3 november 2026 (Greenhouse, Lever och Ashby den 5 november).
+The endpoints and fields were checked against each service on 3 November 2026 (Greenhouse, Lever and Ashby on 5 November).
 
-**Upptäckt.** Konton på Varbi, SmartRecruiters, Workday, Greenhouse, Lever och Ashby hittas i ansökningslänkarna i Platsbankens öppna annonser. Greenhouse, Lever och Ashby används mest av företag som sällan annonserar i Platsbanken, så deras konton hämtas dessutom ur Common Crawl tillsammans med källa D: varje fångad länk under `jobs.lever.co/*`, `boards.greenhouse.io/*` och så vidare pekar ut ett konto (`CrawlPlatformBoards`, ett jobb per plattform). `radar:discover` kör `DiscoverPlatformBoards` direkt efter JobStream-synken och skapar en karriärsida per konto. Ingen DNS- eller fingeravtryckskontroll behövs eftersom länken pekar ut kontot. Den första skrapningen visar om sidan går att läsa, annars markeras den som död. Vilka plattformar som upptäcks styrs av `RADAR_PLATFORMS`. Teamtailor-länkar går som tidigare via kandidater och verifiering.
+**Discovery.** Accounts on Varbi, SmartRecruiters, Workday, Greenhouse, Lever and Ashby are found in the application links of Platsbanken’s open postings. Greenhouse, Lever and Ashby are mostly used by companies that rarely post in Platsbanken, so their accounts are also taken from Common Crawl along with source D: every captured link under `jobs.lever.co/*`, `boards.greenhouse.io/*` and so on points out an account (`CrawlPlatformBoards`, one job per platform). `radar:discover` runs `DiscoverPlatformBoards` right after the JobStream sync and creates one career site per account. No DNS or fingerprint check is needed, since the link points out the account. The first scrape shows whether the site can be read; otherwise it is marked as dead. Which platforms are discovered is set by `RADAR_PLATFORMS`. Teamtailor links still go through candidates and verification.
 
-**Bara Sverige.** SmartRecruiters, Workday, Greenhouse, Lever och Ashby används av företag över hela världen. Där läses bara annonser med en ort i landet i `RADAR_COUNTRY` (standard `SE`). En annons räknas om någon av dess orter ligger i landet, eftersom många annonseras för flera länder med Sverige som extra ort. Alla orter sparas, så landsfiltret fungerar som vanligt. Teamtailor och Varbi filtreras inte. Greenhouse har orten bara som fritext (”Stockholm”, ”Remote - Sweden”). Landet tas då från en del som namnger ett land, och annars från listan över svenska kommuner i `resources/places/SE.txt` (`App\Scraping\Places`). Karriärsidor på dessa plattformar utan annonser i landet skrapas bara var `RADAR_EMPTY_RECHECK_DAYS` dag (standard 7), eftersom de flesta kontona i Common Crawl saknar svenska annonser. Konton på Greenhouse, Lever och Ashby delar en API-värd, så där skrapas fyra sidor åt gången per värd i stället för en.
+**Sweden only.** SmartRecruiters, Workday, Greenhouse, Lever and Ashby are used by companies all over the world. There, only postings with a location in the country in `RADAR_COUNTRY` (`SE` by default) are read. A posting counts if any of its locations is in the country, as many are posted for several countries with Sweden as an extra location. All locations are stored, so the country filter works as usual. Teamtailor and Varbi are not filtered. Greenhouse only has the location as free text (“Stockholm”, “Remote - Sweden”). The country is then taken from a part that names a country, or else from the list of Swedish municipalities in `resources/places/SE.txt` (`App\Scraping\Places`). Career sites on these platforms without postings in the country are only scraped every `RADAR_EMPTY_RECHECK_DAYS` days (7 by default), since most accounts in Common Crawl have no Swedish postings. Accounts on Greenhouse, Lever and Ashby share an API host, so there four sites are scraped at a time per host instead of one.
 
-**Platsbanken som källa.** Varje öppen annons i JobStream blir en annons på karriärsidan Platsbanken, med rubrik, text, arbetsgivare, arbetsort, anställningsform, lön och publiceringsdatum. Borttagna annonser i strömmen stängs, och en ny ögonblicksbild stänger allt den inte innehåller. Synken körs med varje `radar:scrape`, alltså varje natt som de andra källorna, och dessutom i veckans upptäckt. Migreringen som infördes samtidigt nollställer JobStream-markören, så nästa synk läser en hel ögonblicksbild.
+**Platsbanken as a source.** Every open posting in JobStream becomes a posting on the Platsbanken career site, with title, text, employer, location, employment type, salary and publishing date. Postings removed in the stream are closed, and a new snapshot closes everything it does not contain. The sync runs with every `radar:scrape`, so every night like the other sources, and also in the weekly discovery. The migration introduced at the same time resets the JobStream cursor, so the next sync reads a full snapshot.
 
-## Skrapning
+## Scraping
 
-Varje karriärsida skrapas av köjobbet `ScrapeBoard` med plattformens adapter. Jobbet är unikt per karriärsida och gör högst en förfrågan åt gången mot samma värd. Det som följer gäller Teamtailor. Övriga plattformar sparas och stängs enligt samma regler (steg 3 och 4).
+Each career site is scraped by the queued job `ScrapeBoard` with the platform’s adapter. The job is unique per career site and makes at most one request at a time to the same host. What follows applies to Teamtailor. The other platforms are stored and closed by the same rules (steps 3 and 4).
 
-1. `jobs.json` hämtas sida för sida (`?page=N`, 100 poster per sida) tills en sida har färre än 100 poster. Om en full sida inte ger några nya id, om en senare sida inte går att läsa eller om gränsen på 100 sidor nås, räknas läsningen som trunkerad.
-2. `jobs.rss` hämtas med `?offset=N` för avdelning och distansstatus. Fel här loggas men stoppar aldrig skrapningen.
-3. Annonserna sparas med upsert på `(board_id, feed_id)`. `first_seen_at` behålls, alla orter sparas i `job_posting_locations` och land normaliseras till ISO-kod.
-4. Annonser som försvunnit inaktiveras, men bara efter en fullständig läsning.
+1. `jobs.json` is fetched page by page (`?page=N`, 100 entries per page) until a page has fewer than 100 entries. If a full page gives no new ids, a later page cannot be read or the limit of 100 pages is reached, the read counts as truncated.
+2. `jobs.rss` is fetched with `?offset=N` for department and remote status. Errors here are logged but never stop the scrape.
+3. Postings are stored with an upsert on `(board_id, feed_id)`. `first_seen_at` is kept, all locations are stored in `job_posting_locations` and the country is normalised to an ISO code.
+4. Postings that have disappeared are deactivated, but only after a complete read.
 
-Status på karriärsidan: `active` (har annonser), `empty` (flödet är tomt), `dead` (404, 410 eller svar som inte är ett jobbflöde, annonserna stängs) och `error` (tillfälligt fel, senast kända annonser behålls). Döda sidor provas igen efter `RADAR_DEAD_RECHECK_DAYS` dagar.
+Career site status: `active` (has postings), `empty` (the feed is empty), `dead` (404, 410 or a response that is not a job feed; the postings are closed) and `error` (temporary failure; the last known postings are kept). Dead sites are retried after `RADAR_DEAD_RECHECK_DAYS` days.
 
-## Webbgränssnitt
+## Duplicates between Platsbanken and other sources
 
-`/` visar alla aktiva annonser, grupperade per arbetsgivare eller som platt lista. Gruppering sker på annonsens arbetsgivare och inte på karriärsidan, eftersom bemanningsföretag annonserar åt kunder. Filtren (fritext, osedda, land, ort, arbetsplats, avdelning, publiceringsdatum, nyupptäckta, källa och typ av Teamtailor-sida) sparas i URL:en, och varje filter visar antal träffar givet de andra filtren. Antalen cachas en minut per filterkombination. `/stats` visar samma statistik som `radar:stats` och är bara öppen för admins.
+Many employers post the same job both in their own recruitment system and in Platsbanken. `radar:match-platsbanken` finds them after the nightly scrape, for postings from every platform except Platsbanken itself:
 
-Fritext söker i titel, arbetsgivare och beskrivning via MySQL FULLTEXT i boolean mode, med `+ord*` per ord. Det betyder att ett ord matchar i början av ord. "utvecklare" hittar därför inte "Backendutvecklare". Ord kortare än tre tecken söks med LIKE, eftersom de ligger under InnoDB:s minsta ordlängd.
+1. **Application link.** The Platsbanken posting links to the same job. Each adapter gives a job key from the link: for Teamtailor the job id in the path (`/jobs/<id>-...`) whatever the host, for Varbi `jobID`, for SmartRecruiters the posting id and for Workday the last part of the path. Otherwise the same host and path are required.
+2. **Organisation number and title.** The career site’s organisation number is taken from postings that matched in step 1, or from `domains` through the registrable domain. Then the same normalised title is required.
 
-Sökningen (`App\Search\JobSearch`) matchar fritexten i SQL och läser sedan en smal rad per träff via ett täckande index. Totalen, alla facetter och grupperna räknas i ett enda svep i PHP, och bara de annonser som visas laddas i sin helhet. En grupps annonser laddas när gruppen fälls ut. Testet `composer test:mysql` seedar 50 000 annonser med `DemoSeeder` och kräver att typiska sidor svarar under 300 ms (bästa av tre körningar, med resultatcachen tömd före varje körning). Ett sökord som finns i nästan alla annonser är långsammare, eftersom InnoDB:s fulltextsökning då själv blir flaskhalsen.
+The Platsbanken posting gets `duplicate_of_id` set to the employer’s own posting and is left out of the list, the unseen count and the statistics. The employer’s version is shown, as it usually has more data. A matched posting without a location (every Varbi posting) gets its locations from Platsbanken. Varbi postings therefore lack a location between the nightly scrape and the matching, and those not in Platsbanken lack one entirely.
 
-## Konton och markeringar
+## Queues and the first run
 
-Tjänsten är öppen för alla: vem som helst kan skapa ett konto på `/register` (namn, e-post och lösenord med minst 8 tecken) och är sedan inloggad direkt. Alla sidor utom inloggning och registrering kräver ett konto. Registreringen tillåter högst fem nya konton per IP-adress och timme och kan stängas med `RADAR_REGISTRATION=false`. Efter fem felaktiga inloggningsförsök spärras inloggningen för adressen en stund.
+Heavy jobs run in Horizon (`php artisan horizon`, or the `horizon` service in `docker compose`). The scheduler only queues work. Two queues are used:
 
-Det finns två roller. Vanliga användare ser annonserna och sina markeringar. Admins ser dessutom statistiken (`/stats`) och Horizon (`/horizon`). Man blir aldrig admin genom registreringen, bara med `php artisan radar:admin {e-post}` eller `radar:user --admin`. Lokalt är Horizon öppen även utan inloggning.
+* `default` on the `redis` connection for scraping and verification (900 s timeout, up to `HORIZON_MAX_PROCESSES` processes, 10 by default).
+* `discovery` for JobStream and candidate collection (one process, one-hour timeout). It is used when `RADAR_LONG_QUEUE_CONNECTION=redis-long` is set. Otherwise the jobs go to the default connection.
 
-Varje användare kan markera annonser:
+`retry_after` is set longer than each timeout, so running jobs are not restarted.
 
-* **Att hantera** för annonser man vill arbeta vidare med.
-* **Ansökt** när ansökan är skickad.
-* **Neka** för annonser man har arbetat med men tackat nej till.
-* **Ej relevant** för annonser man inte är intresserad av alls.
+The first time: run `php artisan radar:discover --verify`. It queues JobStream, prefix probing and Common Crawl in a chain that ends with verification. Follow the progress in Horizon on `/horizon`. Then run `php artisan radar:scrape --no-wait`. After that, the schedule takes care of the rest.
 
-Nekade och ej relevanta annonser visas inte i annonslistan. Klickar man på den aktiva markeringen igen tas den bort. `/mina` visar markerade annonser per status, senast ändrade först, även annonser som har stängts.
+## Configuration
 
-Hela företag kan också markeras som ej relevanta, med knappen på företagsgruppen eller *Dölj företaget* i den platta listan. Då döljs alla företagets annonser, även de som upptäcks senare, och de räknas inte heller som osedda. Företaget känns igen på samma namn som listan grupperar på: annonsens arbetsgivare, annars karriärsidans namn. Ett bemanningsföretags kunder döljs därför var för sig. Dolda företag listas under fliken *Ej relevanta* på `/mina`, där de kan visas igen.
+All settings live in `config/radar.php` and are read from `.env` (see `.env.example`). `RADAR_PLATFORMS` picks the platforms that are discovered (`varbi,smartrecruiters,workday,greenhouse,lever,ashby` by default) and `RADAR_COUNTRY` the country that postings from SmartRecruiters, Workday, Greenhouse, Lever and Ashby are filtered on (`SE` by default). DNS goes over DNS over HTTPS by default (`RADAR_DNS_DRIVER=doh`). With `RADAR_DNS_DRIVER=system`, the operating system’s resolver is used instead, which works where DoH is blocked but has no timeout.
 
-En annons är **osedd** tills man markerar den, öppnar den, väljer *Markera som sedd* eller trycker *Markera alla som sedda*. Det sista flyttar bara en tidpunkt på kontot, så annonser som upptäcks efteråt blir osedda igen. Menyvalet *Osedda* visar antalet och öppnar listan filtrerad på osedda annonser.
+## Calibration
 
-Markeringarna ligger i tabellen `job_posting_marks`, en rad per användare och annons som användaren har sett eller markerat, och dolda företag i `hidden_employers`. Sökresultatet cachas per användare och räknas om när användarens markeringar ändras.
+`php artisan radar:calibrate {hosts*}` records, for each host, the CNAME chain, A and AAAA records, TXT records on the root domain, the certificate’s issuer and SAN list, response headers for `/` and `/jobs.json`, and which hosts the HTML page loads resources from. The result is saved as JSON in `storage/app/calibration/`. Parts can be skipped with `--without=txt,tls,http`.
 
-Med `RADAR_BASIC_AUTH_USER` och `RADAR_BASIC_AUTH_PASSWORD` satta krävs dessutom HTTP Basic Auth framför hela appen, till exempel medan en server testas innan den öppnas. Utan dem påverkar Basic Auth ingenting.
+### Results (26 September 2026)
 
-## Matchning mot CV
+The calibration was done in an environment where HTTP to Teamtailor, DNS over HTTPS and large TXT responses were blocked. The results therefore rest on DNS through the system resolver alone. A sample of the raw data is in `tests/Fixtures/calibration/`.
 
-På `/matcha` laddar man upp sitt CV som PDF, med önskemål i fritext om man vill (till exempel ”Linköping eller distans”). Claude läser CV:t och får sedan bedöma de annonser som liknar det mest. Funktionen kräver en nyckel till Claude API i `ANTHROPIC_API_KEY` och är avstängd utan den.
+Method: the prefixes `career`, `careers`, `karriar`, `jobb`, `jobs`, `join`, `work` and `jobba` were tried against 148 company domains, mostly Swedish. 42 hosts pointed to Teamtailor.
 
-1. **Profil.** PDF-filen skickas som den är till Claude, så CV med spalter och inskannade sidor fungerar. Svaret är en strukturerad profil: rubrik, sammanfattning, nivå, roller, kompetenser, orter, länder och söktermer på svenska och engelska, inklusive sammansatta titlar som ”backendutvecklare”. Filen raderas sedan. Bara profilen sparas, utan namn eller kontaktuppgifter.
-2. **Kandidater.** Söktermerna körs mot FULLTEXT i boolean mode där vilken term som helst räcker. Termer i titeln väger tre gånger mer (ett eget FULLTEXT-index på titeln), och bara annonser i profilens länder eller utan känd ort tas med. Dolda annonser och företag hoppas över, liksom upprepningar (samma titel hos samma arbetsgivare, eller samma titel och inledning under ett annat namn på arbetsgivaren). De `RADAR_MATCH_CANDIDATES` bästa (standard 300) går vidare.
-3. **Bedömning.** Claude ger varje annons 0–100 och en mening om varför, `RADAR_MATCH_CHUNK_SIZE` annonser per anrop (standard 20). Anropen körs parallellt i kön (`AnalyzeResume` och sedan en batch av `ScoreResumeMatches`). Beskrivningarna kortas till 3 000 tecken.
+* **CNAME.** Almost every custom domain points to the shared address `ext.teamtailor.com`. Two (`career.clasohlson.com` and `careers.airmee.com`) point to a unique address of the form `<13 characters>.ext.teamtailor.com`. `*.ext.teamtailor.com` is a DNS wildcard, and they all lead on to `teamtailor.map.fastly.net`. The pattern is distinct and enough as a DNS fingerprint.
+* **IP addresses.** `teamtailor.map.fastly.net` answers with 151.101.1.242, 151.101.65.242, 151.101.129.242 and 151.101.193.242, plus matching IPv6 addresses under `2a04:4e42::/32`. These are Fastly anycast addresses that may be shared with other Fastly customers. A hit on an address (a flattened CNAME) is therefore only a reason to make an HTTP request, never proof.
+* **TXT.** `airmee.com` has the record `teamtailor=<32 hexadecimal characters>`, which looks like Teamtailor’s verification record. It is a single confirmation, since most TXT responses were too large for the resolver in the calibration environment. `nordicwellness.se` has a standalone 32-character hex value without a prefix, whose origin cannot be told. Source E looks possible, but the pattern needs more confirmations.
+* **Slug addresses.** `*.teamtailor.com` is a DNS wildcard pointing to a load balancer in AWS (`eu-pink-ecs-teamtailor-*.eu-west-1.elb.amazonaws.com`). Even made-up slugs answer, so DNS cannot tell whether a slug exists. Such candidates have to go straight to HTTP.
+* **HTML.** Not calibrated. The working hypothesis is the domain `teamtailor-cdn.com` (`assets.`, `scripts.` and `images.` exist in DNS).
+* **Certificates.** Not calibrated. TLS traffic in the calibration environment went through a proxy that replaced the certificates.
 
-Listan visar annonser med minst `RADAR_MATCH_MIN_SCORE` poäng (standard 50), och svagare på begäran. Under *Passar som* och *Kompetenser* kan man lägga till egna roller och kompetenser och ta bort Claudes. Ändringarna sparas för sig (kolumnerna `additions` och `removals`), så de finns kvar när CV:t byts eller önskemålen ändras. Egna tillägg läggs först bland söktermerna, och borttagna tar med sig de söktermer som innehåller dem (tas PHP bort försvinner också ”PHP-utvecklare”). Efter en ändring blir *Sök nya annonser* till *Matcha om*, som bedömer alla annonser mot den nya profilen. Annars skickar *Sök nya annonser* bara annonser som inte bedömts förut. Ändrade önskemål gör om profilen utifrån den sparade profilen (CV:t finns inte kvar) och bedömer allt på nytt. Varje uppladdning, ändring och ny sökning räknas mot `RADAR_MATCH_DAILY_RUNS` per användare och dygn (standard 10), eftersom anropen kostar pengar.
+The patterns are in `App\Discovery\Fingerprint`, with a comment per pattern on which domains it was confirmed against. `radar:calibrate` should be run again with full network access to fill in HTML markers and certificate notes and to get more TXT confirmations.
 
-Modellen är `claude-haiku-5-5` med `effort` `medium` (`RADAR_MATCH_MODEL`, `RADAR_MATCH_EFFORT`). En full matchning av 300 annonser är omkring 420 000 tokens in och 50 000 ut, med Haiku runt sju cent. `claude-sonnet-5-5` eller `claude-opus-5-5` bedömer noggrannare men kostar ungefär 20 respektive 40 gånger så mycket. Med dem är server-side fallback påslaget: avböjer modellen ett anrop av policyskäl provar API:t sin standardreserv. Haiku har ingen sådan. Varje anrop loggas med antal tokens.
+## The Python prototype
 
-## Dubbletter mellan Platsbanken och andra källor
+Jobbie started from a Python prototype (`radar.py`, `web/index.html`). It is not in this repository; `radar:import-legacy` can read its SQLite file.
 
-Många arbetsgivare lägger samma annons både i sitt eget rekryteringssystem och i Platsbanken. `radar:match-platsbanken` hittar dem efter nattens skrapning, för annonser från alla plattformar utom Platsbanken själv:
+## Credits
 
-1. **Ansökningslänk.** Platsbanken-annonsen länkar till samma jobb. Varje adapter ger en jobbnyckel ur länken: för Teamtailor jobb-id i sökvägen (`/jobs/<id>-...`) oavsett värd, för Varbi `jobID`, för SmartRecruiters annons-id och för Workday sista delen av sökvägen. Annars krävs samma värd och sökväg.
-2. **Organisationsnummer och titel.** Karriärsidans organisationsnummer tas från annonser som matchade i steg 1, eller från `domains` via registrerbar domän. Därefter krävs samma normaliserade titel.
-
-Platsbankens annons får `duplicate_of_id` satt till arbetsgivarens egen annons och visas inte i listan, i räkningen av osedda eller i statistiken. Arbetsgivarens version visas, eftersom den oftast har mer data. En matchad annons utan ort (alla Varbi-annonser) får orterna från Platsbanken. Varbi-annonser saknar därför ort mellan nattens skrapning och matchningen, och de som inte finns i Platsbanken saknar ort helt.
-
-## Köer och första körningen
-
-Tunga jobb körs i Horizon (`php artisan horizon`, eller tjänsten `horizon` i `docker compose`). Schemaläggaren köar bara arbete. Två köer används:
-
-* `default` på anslutningen `redis` för skrapning och verifiering (tidsgräns 900 s, upp till `HORIZON_MAX_PROCESSES` processer, standard 10).
-* `discovery` för JobStream och kandidatinsamling (en process, tidsgräns en timme). Den används när `RADAR_LONG_QUEUE_CONNECTION=redis-long` är satt. Annars hamnar jobben på standardanslutningen.
-
-`retry_after` är satt längre än respektive tidsgräns, så att pågående jobb inte startas om.
-
-Första gången: kör `php artisan radar:discover --verify`. Det köar JobStream, prefixprobning och Common Crawl i en kedja som avslutas med verifiering. Följ förloppet i Horizon på `/horizon`. Kör sedan `php artisan radar:scrape --no-wait`. Därefter sköter schemat resten.
-
-## Konfiguration
-
-Alla inställningar finns i `config/radar.php` och läses från `.env` (se `.env.example`). `RADAR_PLATFORMS` väljer plattformarna som upptäcks (standard `varbi,smartrecruiters,workday,greenhouse,lever,ashby`) och `RADAR_COUNTRY` landet som annonser från SmartRecruiters, Workday, Greenhouse, Lever och Ashby filtreras på (standard `SE`). DNS går som standard via DNS over HTTPS (`RADAR_DNS_DRIVER=doh`). Med `RADAR_DNS_DRIVER=system` används operativsystemets resolver i stället, vilket fungerar där DoH är blockerat men saknar tidsgräns.
-
-## Kalibrering
-
-`php artisan radar:calibrate {värdar*}` sparar för varje värd CNAME-kedja, A- och AAAA-poster, TXT-poster på rotdomänen, certifikatets utfärdare och SAN-lista, svarshuvuden för `/` och `/jobs.json` samt vilka värdar HTML-sidan laddar resurser från. Resultatet hamnar som JSON i `storage/app/calibration/`. Delar kan hoppas över med `--without=txt,tls,http`.
-
-### Resultat (26 september 2026)
-
-Kalibreringen gjordes i en miljö där HTTP mot Teamtailor, DNS over HTTPS och stora TXT-svar var blockerade. Därför bygger resultatet enbart på DNS via systemets resolver. Ett urval av rådata finns i `tests/Fixtures/calibration/`.
-
-Metod: prefixen `career`, `careers`, `karriar`, `jobb`, `jobs`, `join`, `work` och `jobba` provades mot 148 företagsdomäner, främst svenska. 42 värdar pekade på Teamtailor.
-
-* **CNAME.** Nästan alla egna domäner pekar på den gemensamma adressen `ext.teamtailor.com`. Två (`career.clasohlson.com` och `careers.airmee.com`) pekar på en unik adress på formen `<13 tecken>.ext.teamtailor.com`. `*.ext.teamtailor.com` är ett DNS-jokertecken, och alla leder vidare till `teamtailor.map.fastly.net`. Mönstret är distinkt och räcker som fingeravtryck i DNS.
-* **IP-adresser.** `teamtailor.map.fastly.net` svarar med 151.101.1.242, 151.101.65.242, 151.101.129.242 och 151.101.193.242 samt motsvarande IPv6 under `2a04:4e42::/32`. Det är Fastlys anycastadresser som kan delas med andra Fastlykunder. En träff på adress (utplattad CNAME) är därför bara ett skäl att göra ett HTTP-anrop, aldrig ett bevis.
-* **TXT.** `airmee.com` har posten `teamtailor=<32 hexadecimala tecken>`, vilket ser ut att vara Teamtailors verifieringspost. Det är bara en bekräftelse eftersom de flesta TXT-svar var för stora för resolvern i kalibreringsmiljön. `nordicwellness.se` har ett fristående 32-teckens hexvärde utan prefix, vars ursprung inte går att avgöra. Källa E ser möjlig ut men mönstret behöver fler bekräftelser.
-* **Slug-adresser.** `*.teamtailor.com` är ett DNS-jokertecken som pekar på en lastbalanserare i AWS (`eu-pink-ecs-teamtailor-*.eu-west-1.elb.amazonaws.com`). Även påhittade slugs svarar, så DNS kan inte avgöra om en slug finns. Sådana kandidater måste gå direkt till HTTP.
-* **HTML.** Ej kalibrerat. Arbetshypotesen är domänen `teamtailor-cdn.com` (`assets.`, `scripts.` och `images.` finns i DNS).
-* **Certifikat.** Ej kalibrerat. TLS-trafiken i kalibreringsmiljön gick via en proxy som bytte ut certifikaten.
-
-Mönstren finns i `App\Discovery\Fingerprint`, med en kommentar per mönster om vilka domäner det bekräftades mot. Innan Fas 4 bör `radar:calibrate` köras igen med fullt nätverk för att fylla i HTML-markörer och certifikatsnoteringar och för att få fler TXT-bekräftelser.
-
-## Python-prototypen
-
-Planen utgår från en Python-prototyp (`radar.py`, `web/index.html`) som skulle flyttas till `legacy/`. Den finns inte i det här repot och har därför inte flyttats.
+A project by [Marco Sommer](https://wheresmar.co). MIT licence, as declared in `composer.json`. The sources’ logos belong to their respective owners and are only used to show where postings come from.

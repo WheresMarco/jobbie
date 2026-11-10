@@ -1,20 +1,33 @@
 <div @if ($resume?->status->busy()) wire:poll.3s @endif>
-    <h1 class="text-xl font-semibold tracking-tight">{{ __('ui.match.title') }}</h1>
-    <p class="mt-1 max-w-3xl text-sm text-stone-600">{{ __('ui.match.intro') }}</p>
+    <x-page-header icon="sparkles" :title="__('ui.match.title')" :subtitle="__('ui.match.intro')" />
 
     @unless ($enabled)
-        <div class="mt-6 rounded-xl border border-dashed border-stone-300 bg-white p-10 text-center">
-            <p class="font-medium">{{ __('ui.match.disabled') }}</p>
-            <p class="mt-1 text-sm text-stone-500">{{ __('ui.match.disabled_hint') }}</p>
-        </div>
+        <x-empty-state icon="lock" class="mt-6" :title="__('ui.match.disabled')" :hint="__('ui.match.disabled_hint')" />
     @else
         @if ($resume === null)
-            <section class="mt-6 max-w-2xl rounded-xl border border-stone-200 bg-white p-5">
-                @include('livewire.partials.resume-upload')
-            </section>
+            <div class="mt-6 grid gap-4 lg:grid-cols-5">
+                <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm lg:col-span-3">
+                    <h2 class="flex items-center gap-2 font-bold"><x-icon name="file-up" class="size-5 text-accent-600" />{{ __('ui.match.upload_title') }}</h2>
+                    <div class="mt-4">@include('livewire.partials.resume-upload')</div>
+                </section>
+                <section class="rounded-2xl bg-accent-50 p-6 ring-1 ring-accent-100 lg:col-span-2" aria-labelledby="how-heading">
+                    <h2 id="how-heading" class="font-bold text-accent-900">{{ __('ui.match.how_title') }}</h2>
+                    <ol class="mt-4 space-y-4 text-sm">
+                        @foreach (['upload', 'read', 'score'] as $i => $step)
+                            <li class="flex gap-3">
+                                <span class="grid size-7 shrink-0 place-items-center rounded-full bg-accent-700 text-xs font-bold text-white">{{ $i + 1 }}</span>
+                                <div>
+                                    <p class="font-semibold text-accent-950">{{ __("ui.match.how.{$step}.title") }}</p>
+                                    <p class="mt-0.5 text-accent-900/80">{{ __("ui.match.how.{$step}.text") }}</p>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ol>
+                </section>
+            </div>
         @else
             <div class="mt-6 grid gap-4 lg:grid-cols-3">
-                <section class="rounded-xl border border-stone-200 bg-white p-5 lg:col-span-2" aria-labelledby="profile-heading" data-profile>
+                <section class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm lg:col-span-2" aria-labelledby="profile-heading" data-profile>
                     @if ($profile)
                         <h2 id="profile-heading" class="text-lg font-semibold">{{ $profile->headline }}</h2>
                         <p class="mt-1 text-sm text-stone-500">
@@ -65,7 +78,7 @@
                     @endif
                 </section>
 
-                <section class="space-y-4 rounded-xl border border-stone-200 bg-white p-5 text-sm">
+                <section class="space-y-4 rounded-2xl border border-stone-200 bg-white p-5 text-sm shadow-sm">
                     <form wire:submit="savePreferences">
                         <label for="preferences" class="font-medium">{{ __('ui.match.preferences') }}</label>
                         <textarea id="preferences" wire:model="preferences" rows="3" maxlength="{{ \App\Livewire\ResumeMatches::MAX_PREFERENCES }}"
@@ -89,7 +102,7 @@
                 </section>
             </div>
 
-            <div class="mt-4 rounded-xl border border-stone-200 bg-white px-5 py-3 text-sm" role="status" data-status="{{ $resume->status->value }}">
+            <div class="mt-4 rounded-2xl border border-stone-200 bg-white px-5 py-3 text-sm shadow-sm" role="status" data-status="{{ $resume->status->value }}">
                 @switch($resume->status)
                     @case(\App\Enums\ResumeStatus::Analyzing)
                         <p class="flex items-center gap-2"><span class="inline-block size-2 animate-pulse rounded-full bg-accent-600" aria-hidden="true"></span>{{ __('ui.match.analyzing') }}</p>
@@ -117,7 +130,7 @@
                         <p class="mt-2 text-amber-800" data-edited>{{ __('ui.match.edited') }}</p>
                     @endif
                     <div class="mt-2 flex flex-wrap items-center gap-3">
-                        <button type="button" wire:click="searchAgain" class="rounded-lg bg-stone-900 px-3 py-1.5 font-medium text-white hover:bg-stone-700">{{ $resume->edited ? __('ui.match.rematch') : __('ui.match.search_again') }}</button>
+                        <button type="button" wire:click="searchAgain" class="rounded-lg bg-accent-700 px-3 py-1.5 font-semibold text-white hover:bg-accent-800">{{ $resume->edited ? __('ui.match.rematch') : __('ui.match.search_again') }}</button>
                         <span class="text-stone-500">{{ $resume->edited ? __('ui.match.rematch_hint') : __('ui.match.search_again_hint') }}</span>
                     </div>
                     @error('run') <p class="mt-1 text-red-700">{{ $message }}</p> @enderror
@@ -126,7 +139,7 @@
 
             @if ($totalCount > 0)
                 <div class="mt-6 flex flex-wrap items-center justify-between gap-2">
-                    <h2 class="font-semibold">{{ __('ui.match.matches') }}</h2>
+                    <h2 class="flex items-center gap-2 text-lg font-bold tracking-tight"><x-icon name="sparkles" class="text-accent-600" />{{ __('ui.match.matches') }}</h2>
                     <label class="flex items-center gap-2 text-sm text-stone-600">
                         <input type="checkbox" wire:model.live="all" class="rounded border-stone-300">
                         {{ __('ui.match.show_weak', ['min' => $minScore, 'count' => $totalCount - $strongCount]) }}
@@ -134,9 +147,9 @@
                 </div>
 
                 @if ($matches === [])
-                    <div class="mt-3 rounded-xl border border-dashed border-stone-300 bg-white p-8 text-center text-sm">{{ __('ui.match.no_strong') }}</div>
+                    <x-empty-state icon="search-x" class="mt-3" :title="__('ui.match.no_strong_title')" :hint="__('ui.match.no_strong')" />
                 @else
-                    <ul class="mt-3 divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white px-4">
+                    <ul class="mt-3 divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white px-4 shadow-sm">
                         @foreach ($matches as $match)
                             @include('livewire.partials.posting', ['posting' => $match->jobPosting, 'match' => $match, 'terms' => [], 'showEmployer' => true, 'userMarks' => $userMarks])
                         @endforeach
@@ -145,7 +158,7 @@
 
                 @if ($hasMore)
                     <div class="mt-6 text-center">
-                        <button type="button" wire:click="showMore" class="rounded-lg border border-stone-300 bg-white px-5 py-2 text-sm font-medium hover:bg-stone-100">
+                        <button type="button" wire:click="showMore" class="rounded-xl border border-stone-300 bg-white px-5 py-2 text-sm font-semibold shadow-sm hover:bg-stone-100">
                             {{ __('ui.jobs.show_more') }}
                         </button>
                     </div>

@@ -17,9 +17,9 @@
 <div x-data="{ filtersOpen: false }" class="lg:grid lg:grid-cols-[17rem_1fr] lg:gap-8">
     {{-- Filters --}}
     <aside class="lg:block" :class="filtersOpen ? 'block' : 'hidden'" aria-label="{{ __('ui.filters.title') }}">
-        <div class="space-y-6 rounded-xl border border-stone-200 bg-white p-4 lg:sticky lg:top-6">
+        <div class="space-y-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm lg:sticky lg:top-20">
             <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">{{ __('ui.filters.title') }}</h2>
+                <h2 class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-stone-500"><x-icon name="sliders" />{{ __('ui.filters.title') }}</h2>
                 @unless ($filters->isEmpty())
                     <button type="button" wire:click="clearFilters" class="text-sm text-accent-700 hover:underline">{{ __('ui.filters.clear') }}</button>
                 @endunless
@@ -102,17 +102,20 @@
     {{-- Results --}}
     <section class="mt-4 lg:mt-0" aria-live="polite">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <input type="search" wire:model.live.debounce.300ms="q" placeholder="{{ __('ui.jobs.search_placeholder') }}"
-                   aria-label="{{ __('ui.jobs.search_placeholder') }}"
-                   class="w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 shadow-sm outline-none focus:border-accent-600 focus:ring-2 focus:ring-accent-600/30">
+            <label class="relative block w-full">
+                <x-icon name="search" class="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-stone-400" />
+                <input type="search" wire:model.live.debounce.300ms="q" placeholder="{{ __('ui.jobs.search_placeholder') }}"
+                       aria-label="{{ __('ui.jobs.search_placeholder') }}"
+                       class="w-full rounded-xl border border-stone-300 bg-white py-3 pl-11 pr-4 shadow-sm outline-none focus:border-accent-600 focus:ring-2 focus:ring-accent-600/30">
+            </label>
             <div class="flex shrink-0 gap-2">
                 <button type="button" @click="filtersOpen = ! filtersOpen"
-                        class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm lg:hidden">{{ __('ui.filters.title') }}</button>
-                <div class="inline-flex rounded-lg border border-stone-300 bg-white p-0.5 text-sm" role="group" aria-label="{{ __('ui.jobs.view') }}">
+                        class="flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium shadow-sm lg:hidden"><x-icon name="sliders" />{{ __('ui.filters.title') }}</button>
+                <div class="inline-flex rounded-xl border border-stone-300 bg-white p-1 text-sm shadow-sm" role="group" aria-label="{{ __('ui.jobs.view') }}">
                     <button type="button" wire:click="$set('view', 'grouped')" aria-pressed="{{ $grouped ? 'true' : 'false' }}"
-                            @class(['rounded-md px-3 py-1.5', 'bg-stone-900 text-white' => $grouped])>{{ __('ui.jobs.view_grouped') }}</button>
+                            @class(['flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5', 'bg-accent-700 font-medium text-white' => $grouped, 'text-stone-600 hover:text-stone-900' => ! $grouped])><x-icon name="building" class="hidden sm:block" />{{ __('ui.jobs.view_grouped') }}</button>
                     <button type="button" wire:click="$set('view', 'flat')" aria-pressed="{{ $grouped ? 'false' : 'true' }}"
-                            @class(['rounded-md px-3 py-1.5', 'bg-stone-900 text-white' => ! $grouped])>{{ __('ui.jobs.view_flat') }}</button>
+                            @class(['flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5', 'bg-accent-700 font-medium text-white' => ! $grouped, 'text-stone-600 hover:text-stone-900' => $grouped])><x-icon name="list" class="hidden sm:block" />{{ __('ui.jobs.view_flat') }}</button>
                 </div>
             </div>
         </div>
@@ -123,25 +126,23 @@
         </p>
 
         @if ($total === 0)
-            <div class="mt-6 rounded-xl border border-dashed border-stone-300 bg-white p-10 text-center">
-                @if ($filters->isEmpty())
-                    <p class="font-medium">{{ __('ui.jobs.empty_database') }}</p>
-                    <p class="mt-1 text-sm text-stone-600">{{ __('ui.jobs.empty_database_hint') }}</p>
-                @else
-                    <p class="font-medium">{{ __('ui.jobs.empty_filters') }}</p>
-                    <button type="button" wire:click="clearFilters" class="mt-3 text-sm text-accent-700 hover:underline">{{ __('ui.filters.clear') }}</button>
-                @endif
-            </div>
+            @if ($filters->isEmpty())
+                <x-empty-state icon="radar" class="mt-6" :title="__('ui.jobs.empty_database')" :hint="__('ui.jobs.empty_database_hint')" />
+            @else
+                <x-empty-state icon="search-x" class="mt-6" :title="__('ui.jobs.empty_filters')" :hint="__('ui.jobs.empty_filters_hint')">
+                    <button type="button" wire:click="clearFilters" class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium hover:bg-stone-100">{{ __('ui.filters.clear') }}</button>
+                </x-empty-state>
+            @endif
         @elseif ($grouped)
             @php($openNow = array_values(array_map(fn ($g) => $g->employer, array_filter($groups, fn ($g) => $g->open))))
             <div class="mt-4 space-y-3">
                 @foreach ($groups as $group)
-                    <section class="rounded-xl border border-stone-200 bg-white" wire:key="group-{{ md5($group->employer) }}">
+                    <section class="rounded-2xl border border-stone-200 bg-white shadow-sm" wire:key="group-{{ md5($group->employer) }}">
                         <div class="flex items-center">
                         <button type="button" aria-expanded="{{ $group->open ? 'true' : 'false' }}"
                                 wire:click="toggleGroup(@js($group->employer), @js($openNow))"
                                 class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left">
-                            <span @class(['text-stone-400 transition-transform', 'rotate-90' => $group->open]) aria-hidden="true">›</span>
+                            <x-icon name="chevron-right" :class="'text-stone-400 transition-transform'.($group->open ? ' rotate-90' : '')" />
                             <span class="font-semibold">{{ \App\Search\Highlighter::highlight($group->employer, $terms) }}</span>
                             <span class="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium tabular-nums">{{ $group->total }}</span>
                             @if ($group->remote > 0)
@@ -169,7 +170,7 @@
                                     @endif
                                 </span>
                                 @if ($group->siteUrl)
-                                    <a href="{{ $group->siteUrl }}" target="_blank" rel="noopener noreferrer" class="text-accent-700 hover:underline">{{ __('ui.jobs.career_site') }}</a>
+                                    <a href="{{ $group->siteUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 font-medium text-accent-700 hover:underline">{{ __('ui.jobs.career_site') }}<x-icon name="external-link" class="size-3.5" /></a>
                                 @endif
                             </div>
                         @endif
@@ -177,7 +178,7 @@
                 @endforeach
             </div>
         @else
-            <ul class="mt-4 divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white px-4">
+            <ul class="mt-4 divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white px-4 shadow-sm">
                 @foreach ($postings as $posting)
                     @include('livewire.partials.posting', ['posting' => $posting, 'terms' => $terms, 'showEmployer' => true, 'userMarks' => $userMarks])
                 @endforeach
@@ -186,7 +187,7 @@
 
         @if ($hasMore)
             <div class="mt-6 text-center">
-                <button type="button" wire:click="showMore" class="rounded-lg border border-stone-300 bg-white px-5 py-2 text-sm font-medium hover:bg-stone-100">
+                <button type="button" wire:click="showMore" class="rounded-xl border border-stone-300 bg-white px-5 py-2 text-sm font-semibold shadow-sm hover:bg-stone-100">
                     {{ __('ui.jobs.show_more') }}
                 </button>
             </div>

@@ -37,7 +37,7 @@ it('shows the registration page and links it from the login page', function (): 
 });
 
 it('creates an account and logs in', function (): void {
-    registration()->assertHasNoErrors()->assertRedirect('/');
+    registration()->assertHasNoErrors()->assertRedirect('/valkommen');
 
     $user = User::query()->sole();
     expect($user->email)->toBe('marco@example.com')

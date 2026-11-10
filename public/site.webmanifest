@@ -1,0 +1,15 @@
+{
+    "name": "Jobbie",
+    "short_name": "Jobbie",
+    "description": "Jobben, direkt från arbetsgivarnas karriärsidor.",
+    "lang": "sv",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#fafaf9",
+    "theme_color": "#006e51",
+    "icons": [
+        { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any" },
+        { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+        { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+    ]
+}

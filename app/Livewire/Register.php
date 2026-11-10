@@ -12,7 +12,8 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 /**
- * Create an account and log in. Can be turned off with RADAR_REGISTRATION.
+ * Create an account, log in and show the welcome page. Can be turned off
+ * with RADAR_REGISTRATION.
  */
 final class Register extends Component
 {
@@ -82,11 +83,11 @@ final class Register extends Component
         Auth::login($user);
         session()->regenerate();
 
-        $this->redirectRoute('jobs');
+        $this->redirectRoute('welcome');
     }
 
     public function render(): View
     {
-        return view('livewire.register')->title(__('ui.auth.register_title'));
+        return view('livewire.register')->layout('layouts::guest')->title(__('ui.auth.register_title'));
     }
 }

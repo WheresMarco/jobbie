@@ -110,6 +110,17 @@ final class RadarStats
     }
 
     /**
+     * Employers with active postings, named as the job list groups them.
+     */
+    public function activeEmployers(): int
+    {
+        return (int) $this->visiblePostings()
+            ->leftJoin('boards', 'boards.id', '=', 'job_postings.board_id')
+            ->selectRaw('count(distinct coalesce(job_postings.company, boards.name, boards.canonical_host)) as employers')
+            ->value('employers');
+    }
+
+    /**
      * Domains whose root TXT record says they are Teamtailor customers but
      * where no board has been found under the domain: the visible gap.
      *

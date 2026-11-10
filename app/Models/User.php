@@ -46,11 +46,49 @@ class User extends Authenticatable
     }
 
     /**
+     * @return HasMany<HiddenEmployer, $this>
+     */
+    public function hiddenEmployers(): HasMany
+    {
+        return $this->hasMany(HiddenEmployer::class);
+    }
+
+    /**
      * @return HasOne<Resume, $this>
      */
     public function resume(): HasOne
     {
         return $this->hasOne(Resume::class);
+    }
+
+    /**
+     * Up to two letters for the avatar: "Anna Svensson" is "AS".
+     */
+    public function initials(): string
+    {
+        $words = preg_split('/\s+/u', trim($this->name), -1, PREG_SPLIT_NO_EMPTY) ?: [$this->email];
+
+        return mb_strtoupper(implode('', array_map(
+            static fn (string $word): string => mb_substr($word, 0, 1),
+            [reset($words), ...(count($words) > 1 ? [end($words)] : [])],
+        )));
+    }
+
+    /**
+     * The user's Gravatar at $size pixels. Gravatar answers 404 when there
+     * is none, so the page can fall back to the initials.
+     */
+    public function gravatarUrl(int $size = 80): string
+    {
+        return 'https://gravatar.com/avatar/'.hash('sha256', mb_strtolower(trim($this->email))).'?'.http_build_query(['s' => $size, 'd' => '404']);
+    }
+
+    /**
+     * The name to greet the user with.
+     */
+    public function firstName(): string
+    {
+        return strtok(trim($this->name), " \t") ?: $this->name;
     }
 
     /**

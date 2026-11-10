@@ -15,7 +15,7 @@ beforeEach(function (): void {
 
 it('sends guests to the login page', function (string $path): void {
     $this->get($path)->assertRedirect('/login');
-})->with(['/', '/mina', '/stats']);
+})->with(['/mina', '/matcha', '/konto', '/stats']);
 
 it('shows the login page to guests only', function (): void {
     $this->get('/login')->assertOk()->assertSeeLivewire(Login::class)->assertSee('Logga in');

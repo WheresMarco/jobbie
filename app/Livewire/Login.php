@@ -58,6 +58,6 @@ final class Login extends Component
 
     public function render(): View
     {
-        return view('livewire.login')->title(__('ui.auth.title'));
+        return view('livewire.login')->layout('layouts::guest')->title(__('ui.auth.title'));
     }
 }

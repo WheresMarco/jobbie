@@ -4,17 +4,29 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji',
-        'Segoe UI Emoji';
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
+/* Jobbie green. The logo in public/icon.svg uses 400 → 700 as hex. */
 @theme {
     --color-accent-50: oklch(0.97 0.02 170);
     --color-accent-100: oklch(0.93 0.05 170);
+    --color-accent-200: oklch(0.87 0.08 170);
+    --color-accent-300: oklch(0.79 0.11 170);
+    --color-accent-400: oklch(0.7 0.13 170);
+    --color-accent-500: oklch(0.62 0.13 170);
     --color-accent-600: oklch(0.55 0.12 170);
     --color-accent-700: oklch(0.47 0.11 170);
+    --color-accent-800: oklch(0.39 0.09 170);
+    --color-accent-900: oklch(0.32 0.07 170);
+    --color-accent-950: oklch(0.22 0.05 170);
 }
 
 mark {
     @apply rounded-sm bg-amber-200/70 px-0.5 text-inherit;
+}
+
+[x-cloak] {
+    display: none !important;
 }

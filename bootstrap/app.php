@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\BasicAuth;
+use App\Http\Middleware\ShowLandingToGuests;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Covers every web route, including Livewire updates and Horizon.
         $middleware->web(append: [BasicAuth::class]);
+
+        // Must run before auth, which would otherwise send guests on / to the login page.
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: ShowLandingToGuests::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

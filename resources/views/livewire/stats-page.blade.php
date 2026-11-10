@@ -1,6 +1,7 @@
 <div class="space-y-8">
     <section>
-        <h1 class="text-xl font-semibold tracking-tight">{{ __('ui.stats.sources') }}</h1>
+        <x-page-header icon="chart" :title="__('ui.nav.stats')" :subtitle="__('ui.stats.intro')" />
+        <h2 class="mt-8 text-lg font-semibold tracking-tight">{{ __('ui.stats.sources') }}</h2>
         @if ($sources === [])
             <p class="mt-3 text-sm text-stone-600">{{ __('ui.stats.none') }}</p>
         @else

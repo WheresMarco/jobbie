@@ -43,7 +43,7 @@
             <span class="font-medium text-stone-700">{{ \App\Search\Highlighter::highlight((string) ($posting->company ?? $posting->board?->name ?? ''), $terms) }}</span>
         @endif
         @if ($posting->cities !== [])
-            <span>{{ implode(', ', $posting->cities) }}</span>
+            <span class="inline-flex items-center gap-1"><x-icon name="map-pin" class="size-3.5 text-stone-400" />{{ implode(', ', $posting->cities) }}</span>
         @endif
         @if ($remoteKey)
             <span @class([
@@ -79,7 +79,7 @@
                 <button type="button" wire:click="mark({{ $posting->id }}, '{{ $status === $option ? '' : $option->value }}')"
                         aria-pressed="{{ $status === $option ? 'true' : 'false' }}"
                         @class([
-                            'rounded-md border px-2 py-1 font-medium',
+                            'rounded-lg border px-2 py-1 font-medium',
                             'border-stone-300 bg-white text-stone-700 hover:bg-stone-100' => $status !== $option,
                             'border-accent-600 bg-accent-600 text-white' => $status === $option && ! $option->hides(),
                             'border-stone-700 bg-stone-700 text-white' => $status === $option && $option->hides(),
